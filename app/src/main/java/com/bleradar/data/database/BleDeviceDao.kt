@@ -47,6 +47,9 @@ interface BleDeviceDao {
     @Query("UPDATE ble_devices SET lastAlertTime = :alertTime WHERE deviceAddress = :address")
     suspend fun updateLastAlertTime(address: String, alertTime: Long)
 
+    @Query("UPDATE ble_devices SET suspiciousActivityScore = :score WHERE deviceAddress = :address")
+    suspend fun updateSuspiciousScore(address: String, score: Float)
+
     @Query("DELETE FROM ble_devices WHERE deviceAddress = :address")
     suspend fun deleteDevice(address: String)
 }

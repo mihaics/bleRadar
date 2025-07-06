@@ -98,6 +98,9 @@ class DeviceRepository @Inject constructor(
     suspend fun updateLastAlertTime(address: String, alertTime: Long) = 
         database.bleDeviceDao().updateLastAlertTime(address, alertTime)
     
+    suspend fun updateSuspiciousScore(address: String, score: Float) = 
+        database.bleDeviceDao().updateSuspiciousScore(address, score)
+    
     // Detection pattern methods
     fun getPatternsForDevice(address: String): Flow<List<DetectionPattern>> = 
         database.detectionPatternDao().getPatternsForDevice(address)

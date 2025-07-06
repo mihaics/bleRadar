@@ -15,7 +15,8 @@
       "Bash(export:*)",
       "Bash(grep:*)",
       "Bash(git checkout:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": []
   }

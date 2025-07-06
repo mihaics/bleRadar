@@ -495,19 +495,7 @@ class BleRadarService : Service() {
             val analysisResult = advancedTrackerDetector.analyzeDeviceForTracking(deviceAddress)
             
             // Update suspicious activity score
-            deviceRepository.updateDeviceMetrics(
-                address = deviceAddress,
-                count = deviceDetectionCounts.getOrDefault(deviceAddress, 0),
-                consecutive = calculateConsecutiveDetections(deviceAddress),
-                maxConsecutive = getMaxConsecutiveDetections(deviceAddress),
-                avgRssi = 0f, // Keep existing
-                rssiVar = 0f, // Keep existing
-                lastMovement = 0L, // Keep existing
-                stationary = false, // Keep existing
-                suspiciousScore = analysisResult.overallScore,
-                knownTracker = false, // Keep existing
-                trackerType = null // Keep existing
-            )
+            deviceRepository.updateSuspiciousScore(deviceAddress, analysisResult.overallScore)
             
             // Store detection patterns
             analysisResult.analyses.forEach { analysis ->

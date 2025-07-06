@@ -957,156 +957,6 @@ public final class BleDeviceDao_Impl implements BleDeviceDao {
   }
 
   @Override
-  public Flow<List<BleDevice>> getSuspiciousDevices(final float threshold) {
-    final String _sql = "SELECT * FROM ble_devices WHERE suspiciousActivityScore > ? ORDER BY suspiciousActivityScore DESC";
-    final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 1);
-    int _argIndex = 1;
-    _statement.bindDouble(_argIndex, threshold);
-    return CoroutinesRoom.createFlow(__db, false, new String[]{"ble_devices"}, new Callable<List<BleDevice>>() {
-      @Override
-      public List<BleDevice> call() throws Exception {
-        final Cursor _cursor = DBUtil.query(__db, _statement, false, null);
-        try {
-          final int _cursorIndexOfDeviceAddress = CursorUtil.getColumnIndexOrThrow(_cursor, "deviceAddress");
-          final int _cursorIndexOfDeviceName = CursorUtil.getColumnIndexOrThrow(_cursor, "deviceName");
-          final int _cursorIndexOfRssi = CursorUtil.getColumnIndexOrThrow(_cursor, "rssi");
-          final int _cursorIndexOfFirstSeen = CursorUtil.getColumnIndexOrThrow(_cursor, "firstSeen");
-          final int _cursorIndexOfLastSeen = CursorUtil.getColumnIndexOrThrow(_cursor, "lastSeen");
-          final int _cursorIndexOfIsIgnored = CursorUtil.getColumnIndexOrThrow(_cursor, "isIgnored");
-          final int _cursorIndexOfLabel = CursorUtil.getColumnIndexOrThrow(_cursor, "label");
-          final int _cursorIndexOfIsTracked = CursorUtil.getColumnIndexOrThrow(_cursor, "isTracked");
-          final int _cursorIndexOfFollowingScore = CursorUtil.getColumnIndexOrThrow(_cursor, "followingScore");
-          final int _cursorIndexOfDeviceType = CursorUtil.getColumnIndexOrThrow(_cursor, "deviceType");
-          final int _cursorIndexOfManufacturer = CursorUtil.getColumnIndexOrThrow(_cursor, "manufacturer");
-          final int _cursorIndexOfServices = CursorUtil.getColumnIndexOrThrow(_cursor, "services");
-          final int _cursorIndexOfDetectionCount = CursorUtil.getColumnIndexOrThrow(_cursor, "detectionCount");
-          final int _cursorIndexOfConsecutiveDetections = CursorUtil.getColumnIndexOrThrow(_cursor, "consecutiveDetections");
-          final int _cursorIndexOfMaxConsecutiveDetections = CursorUtil.getColumnIndexOrThrow(_cursor, "maxConsecutiveDetections");
-          final int _cursorIndexOfAverageRssi = CursorUtil.getColumnIndexOrThrow(_cursor, "averageRssi");
-          final int _cursorIndexOfRssiVariation = CursorUtil.getColumnIndexOrThrow(_cursor, "rssiVariation");
-          final int _cursorIndexOfLastMovementTime = CursorUtil.getColumnIndexOrThrow(_cursor, "lastMovementTime");
-          final int _cursorIndexOfIsStationary = CursorUtil.getColumnIndexOrThrow(_cursor, "isStationary");
-          final int _cursorIndexOfDetectionPattern = CursorUtil.getColumnIndexOrThrow(_cursor, "detectionPattern");
-          final int _cursorIndexOfSuspiciousActivityScore = CursorUtil.getColumnIndexOrThrow(_cursor, "suspiciousActivityScore");
-          final int _cursorIndexOfLastAlertTime = CursorUtil.getColumnIndexOrThrow(_cursor, "lastAlertTime");
-          final int _cursorIndexOfIsKnownTracker = CursorUtil.getColumnIndexOrThrow(_cursor, "isKnownTracker");
-          final int _cursorIndexOfTrackerType = CursorUtil.getColumnIndexOrThrow(_cursor, "trackerType");
-          final int _cursorIndexOfAdvertisingInterval = CursorUtil.getColumnIndexOrThrow(_cursor, "advertisingInterval");
-          final int _cursorIndexOfRotatingIdentifier = CursorUtil.getColumnIndexOrThrow(_cursor, "rotatingIdentifier");
-          final List<BleDevice> _result = new ArrayList<BleDevice>(_cursor.getCount());
-          while(_cursor.moveToNext()) {
-            final BleDevice _item;
-            final String _tmpDeviceAddress;
-            if (_cursor.isNull(_cursorIndexOfDeviceAddress)) {
-              _tmpDeviceAddress = null;
-            } else {
-              _tmpDeviceAddress = _cursor.getString(_cursorIndexOfDeviceAddress);
-            }
-            final String _tmpDeviceName;
-            if (_cursor.isNull(_cursorIndexOfDeviceName)) {
-              _tmpDeviceName = null;
-            } else {
-              _tmpDeviceName = _cursor.getString(_cursorIndexOfDeviceName);
-            }
-            final int _tmpRssi;
-            _tmpRssi = _cursor.getInt(_cursorIndexOfRssi);
-            final long _tmpFirstSeen;
-            _tmpFirstSeen = _cursor.getLong(_cursorIndexOfFirstSeen);
-            final long _tmpLastSeen;
-            _tmpLastSeen = _cursor.getLong(_cursorIndexOfLastSeen);
-            final boolean _tmpIsIgnored;
-            final int _tmp;
-            _tmp = _cursor.getInt(_cursorIndexOfIsIgnored);
-            _tmpIsIgnored = _tmp != 0;
-            final String _tmpLabel;
-            if (_cursor.isNull(_cursorIndexOfLabel)) {
-              _tmpLabel = null;
-            } else {
-              _tmpLabel = _cursor.getString(_cursorIndexOfLabel);
-            }
-            final boolean _tmpIsTracked;
-            final int _tmp_1;
-            _tmp_1 = _cursor.getInt(_cursorIndexOfIsTracked);
-            _tmpIsTracked = _tmp_1 != 0;
-            final float _tmpFollowingScore;
-            _tmpFollowingScore = _cursor.getFloat(_cursorIndexOfFollowingScore);
-            final String _tmpDeviceType;
-            if (_cursor.isNull(_cursorIndexOfDeviceType)) {
-              _tmpDeviceType = null;
-            } else {
-              _tmpDeviceType = _cursor.getString(_cursorIndexOfDeviceType);
-            }
-            final String _tmpManufacturer;
-            if (_cursor.isNull(_cursorIndexOfManufacturer)) {
-              _tmpManufacturer = null;
-            } else {
-              _tmpManufacturer = _cursor.getString(_cursorIndexOfManufacturer);
-            }
-            final String _tmpServices;
-            if (_cursor.isNull(_cursorIndexOfServices)) {
-              _tmpServices = null;
-            } else {
-              _tmpServices = _cursor.getString(_cursorIndexOfServices);
-            }
-            final int _tmpDetectionCount;
-            _tmpDetectionCount = _cursor.getInt(_cursorIndexOfDetectionCount);
-            final int _tmpConsecutiveDetections;
-            _tmpConsecutiveDetections = _cursor.getInt(_cursorIndexOfConsecutiveDetections);
-            final int _tmpMaxConsecutiveDetections;
-            _tmpMaxConsecutiveDetections = _cursor.getInt(_cursorIndexOfMaxConsecutiveDetections);
-            final float _tmpAverageRssi;
-            _tmpAverageRssi = _cursor.getFloat(_cursorIndexOfAverageRssi);
-            final float _tmpRssiVariation;
-            _tmpRssiVariation = _cursor.getFloat(_cursorIndexOfRssiVariation);
-            final long _tmpLastMovementTime;
-            _tmpLastMovementTime = _cursor.getLong(_cursorIndexOfLastMovementTime);
-            final boolean _tmpIsStationary;
-            final int _tmp_2;
-            _tmp_2 = _cursor.getInt(_cursorIndexOfIsStationary);
-            _tmpIsStationary = _tmp_2 != 0;
-            final String _tmpDetectionPattern;
-            if (_cursor.isNull(_cursorIndexOfDetectionPattern)) {
-              _tmpDetectionPattern = null;
-            } else {
-              _tmpDetectionPattern = _cursor.getString(_cursorIndexOfDetectionPattern);
-            }
-            final float _tmpSuspiciousActivityScore;
-            _tmpSuspiciousActivityScore = _cursor.getFloat(_cursorIndexOfSuspiciousActivityScore);
-            final long _tmpLastAlertTime;
-            _tmpLastAlertTime = _cursor.getLong(_cursorIndexOfLastAlertTime);
-            final boolean _tmpIsKnownTracker;
-            final int _tmp_3;
-            _tmp_3 = _cursor.getInt(_cursorIndexOfIsKnownTracker);
-            _tmpIsKnownTracker = _tmp_3 != 0;
-            final String _tmpTrackerType;
-            if (_cursor.isNull(_cursorIndexOfTrackerType)) {
-              _tmpTrackerType = null;
-            } else {
-              _tmpTrackerType = _cursor.getString(_cursorIndexOfTrackerType);
-            }
-            final long _tmpAdvertisingInterval;
-            _tmpAdvertisingInterval = _cursor.getLong(_cursorIndexOfAdvertisingInterval);
-            final boolean _tmpRotatingIdentifier;
-            final int _tmp_4;
-            _tmp_4 = _cursor.getInt(_cursorIndexOfRotatingIdentifier);
-            _tmpRotatingIdentifier = _tmp_4 != 0;
-            _item = new BleDevice(_tmpDeviceAddress,_tmpDeviceName,_tmpRssi,_tmpFirstSeen,_tmpLastSeen,_tmpIsIgnored,_tmpLabel,_tmpIsTracked,_tmpFollowingScore,_tmpDeviceType,_tmpManufacturer,_tmpServices,_tmpDetectionCount,_tmpConsecutiveDetections,_tmpMaxConsecutiveDetections,_tmpAverageRssi,_tmpRssiVariation,_tmpLastMovementTime,_tmpIsStationary,_tmpDetectionPattern,_tmpSuspiciousActivityScore,_tmpLastAlertTime,_tmpIsKnownTracker,_tmpTrackerType,_tmpAdvertisingInterval,_tmpRotatingIdentifier);
-            _result.add(_item);
-          }
-          return _result;
-        } finally {
-          _cursor.close();
-        }
-      }
-
-      @Override
-      protected void finalize() {
-        _statement.release();
-      }
-    });
-  }
-
-  @Override
   public Object getDevice(final String address,
       final Continuation<? super BleDevice> continuation) {
     final String _sql = "SELECT * FROM ble_devices WHERE deviceAddress = ?";
@@ -1262,6 +1112,156 @@ public final class BleDeviceDao_Impl implements BleDeviceDao {
   public Flow<List<BleDevice>> getKnownTrackers() {
     final String _sql = "SELECT * FROM ble_devices WHERE isKnownTracker = 1 ORDER BY suspiciousActivityScore DESC";
     final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 0);
+    return CoroutinesRoom.createFlow(__db, false, new String[]{"ble_devices"}, new Callable<List<BleDevice>>() {
+      @Override
+      public List<BleDevice> call() throws Exception {
+        final Cursor _cursor = DBUtil.query(__db, _statement, false, null);
+        try {
+          final int _cursorIndexOfDeviceAddress = CursorUtil.getColumnIndexOrThrow(_cursor, "deviceAddress");
+          final int _cursorIndexOfDeviceName = CursorUtil.getColumnIndexOrThrow(_cursor, "deviceName");
+          final int _cursorIndexOfRssi = CursorUtil.getColumnIndexOrThrow(_cursor, "rssi");
+          final int _cursorIndexOfFirstSeen = CursorUtil.getColumnIndexOrThrow(_cursor, "firstSeen");
+          final int _cursorIndexOfLastSeen = CursorUtil.getColumnIndexOrThrow(_cursor, "lastSeen");
+          final int _cursorIndexOfIsIgnored = CursorUtil.getColumnIndexOrThrow(_cursor, "isIgnored");
+          final int _cursorIndexOfLabel = CursorUtil.getColumnIndexOrThrow(_cursor, "label");
+          final int _cursorIndexOfIsTracked = CursorUtil.getColumnIndexOrThrow(_cursor, "isTracked");
+          final int _cursorIndexOfFollowingScore = CursorUtil.getColumnIndexOrThrow(_cursor, "followingScore");
+          final int _cursorIndexOfDeviceType = CursorUtil.getColumnIndexOrThrow(_cursor, "deviceType");
+          final int _cursorIndexOfManufacturer = CursorUtil.getColumnIndexOrThrow(_cursor, "manufacturer");
+          final int _cursorIndexOfServices = CursorUtil.getColumnIndexOrThrow(_cursor, "services");
+          final int _cursorIndexOfDetectionCount = CursorUtil.getColumnIndexOrThrow(_cursor, "detectionCount");
+          final int _cursorIndexOfConsecutiveDetections = CursorUtil.getColumnIndexOrThrow(_cursor, "consecutiveDetections");
+          final int _cursorIndexOfMaxConsecutiveDetections = CursorUtil.getColumnIndexOrThrow(_cursor, "maxConsecutiveDetections");
+          final int _cursorIndexOfAverageRssi = CursorUtil.getColumnIndexOrThrow(_cursor, "averageRssi");
+          final int _cursorIndexOfRssiVariation = CursorUtil.getColumnIndexOrThrow(_cursor, "rssiVariation");
+          final int _cursorIndexOfLastMovementTime = CursorUtil.getColumnIndexOrThrow(_cursor, "lastMovementTime");
+          final int _cursorIndexOfIsStationary = CursorUtil.getColumnIndexOrThrow(_cursor, "isStationary");
+          final int _cursorIndexOfDetectionPattern = CursorUtil.getColumnIndexOrThrow(_cursor, "detectionPattern");
+          final int _cursorIndexOfSuspiciousActivityScore = CursorUtil.getColumnIndexOrThrow(_cursor, "suspiciousActivityScore");
+          final int _cursorIndexOfLastAlertTime = CursorUtil.getColumnIndexOrThrow(_cursor, "lastAlertTime");
+          final int _cursorIndexOfIsKnownTracker = CursorUtil.getColumnIndexOrThrow(_cursor, "isKnownTracker");
+          final int _cursorIndexOfTrackerType = CursorUtil.getColumnIndexOrThrow(_cursor, "trackerType");
+          final int _cursorIndexOfAdvertisingInterval = CursorUtil.getColumnIndexOrThrow(_cursor, "advertisingInterval");
+          final int _cursorIndexOfRotatingIdentifier = CursorUtil.getColumnIndexOrThrow(_cursor, "rotatingIdentifier");
+          final List<BleDevice> _result = new ArrayList<BleDevice>(_cursor.getCount());
+          while(_cursor.moveToNext()) {
+            final BleDevice _item;
+            final String _tmpDeviceAddress;
+            if (_cursor.isNull(_cursorIndexOfDeviceAddress)) {
+              _tmpDeviceAddress = null;
+            } else {
+              _tmpDeviceAddress = _cursor.getString(_cursorIndexOfDeviceAddress);
+            }
+            final String _tmpDeviceName;
+            if (_cursor.isNull(_cursorIndexOfDeviceName)) {
+              _tmpDeviceName = null;
+            } else {
+              _tmpDeviceName = _cursor.getString(_cursorIndexOfDeviceName);
+            }
+            final int _tmpRssi;
+            _tmpRssi = _cursor.getInt(_cursorIndexOfRssi);
+            final long _tmpFirstSeen;
+            _tmpFirstSeen = _cursor.getLong(_cursorIndexOfFirstSeen);
+            final long _tmpLastSeen;
+            _tmpLastSeen = _cursor.getLong(_cursorIndexOfLastSeen);
+            final boolean _tmpIsIgnored;
+            final int _tmp;
+            _tmp = _cursor.getInt(_cursorIndexOfIsIgnored);
+            _tmpIsIgnored = _tmp != 0;
+            final String _tmpLabel;
+            if (_cursor.isNull(_cursorIndexOfLabel)) {
+              _tmpLabel = null;
+            } else {
+              _tmpLabel = _cursor.getString(_cursorIndexOfLabel);
+            }
+            final boolean _tmpIsTracked;
+            final int _tmp_1;
+            _tmp_1 = _cursor.getInt(_cursorIndexOfIsTracked);
+            _tmpIsTracked = _tmp_1 != 0;
+            final float _tmpFollowingScore;
+            _tmpFollowingScore = _cursor.getFloat(_cursorIndexOfFollowingScore);
+            final String _tmpDeviceType;
+            if (_cursor.isNull(_cursorIndexOfDeviceType)) {
+              _tmpDeviceType = null;
+            } else {
+              _tmpDeviceType = _cursor.getString(_cursorIndexOfDeviceType);
+            }
+            final String _tmpManufacturer;
+            if (_cursor.isNull(_cursorIndexOfManufacturer)) {
+              _tmpManufacturer = null;
+            } else {
+              _tmpManufacturer = _cursor.getString(_cursorIndexOfManufacturer);
+            }
+            final String _tmpServices;
+            if (_cursor.isNull(_cursorIndexOfServices)) {
+              _tmpServices = null;
+            } else {
+              _tmpServices = _cursor.getString(_cursorIndexOfServices);
+            }
+            final int _tmpDetectionCount;
+            _tmpDetectionCount = _cursor.getInt(_cursorIndexOfDetectionCount);
+            final int _tmpConsecutiveDetections;
+            _tmpConsecutiveDetections = _cursor.getInt(_cursorIndexOfConsecutiveDetections);
+            final int _tmpMaxConsecutiveDetections;
+            _tmpMaxConsecutiveDetections = _cursor.getInt(_cursorIndexOfMaxConsecutiveDetections);
+            final float _tmpAverageRssi;
+            _tmpAverageRssi = _cursor.getFloat(_cursorIndexOfAverageRssi);
+            final float _tmpRssiVariation;
+            _tmpRssiVariation = _cursor.getFloat(_cursorIndexOfRssiVariation);
+            final long _tmpLastMovementTime;
+            _tmpLastMovementTime = _cursor.getLong(_cursorIndexOfLastMovementTime);
+            final boolean _tmpIsStationary;
+            final int _tmp_2;
+            _tmp_2 = _cursor.getInt(_cursorIndexOfIsStationary);
+            _tmpIsStationary = _tmp_2 != 0;
+            final String _tmpDetectionPattern;
+            if (_cursor.isNull(_cursorIndexOfDetectionPattern)) {
+              _tmpDetectionPattern = null;
+            } else {
+              _tmpDetectionPattern = _cursor.getString(_cursorIndexOfDetectionPattern);
+            }
+            final float _tmpSuspiciousActivityScore;
+            _tmpSuspiciousActivityScore = _cursor.getFloat(_cursorIndexOfSuspiciousActivityScore);
+            final long _tmpLastAlertTime;
+            _tmpLastAlertTime = _cursor.getLong(_cursorIndexOfLastAlertTime);
+            final boolean _tmpIsKnownTracker;
+            final int _tmp_3;
+            _tmp_3 = _cursor.getInt(_cursorIndexOfIsKnownTracker);
+            _tmpIsKnownTracker = _tmp_3 != 0;
+            final String _tmpTrackerType;
+            if (_cursor.isNull(_cursorIndexOfTrackerType)) {
+              _tmpTrackerType = null;
+            } else {
+              _tmpTrackerType = _cursor.getString(_cursorIndexOfTrackerType);
+            }
+            final long _tmpAdvertisingInterval;
+            _tmpAdvertisingInterval = _cursor.getLong(_cursorIndexOfAdvertisingInterval);
+            final boolean _tmpRotatingIdentifier;
+            final int _tmp_4;
+            _tmp_4 = _cursor.getInt(_cursorIndexOfRotatingIdentifier);
+            _tmpRotatingIdentifier = _tmp_4 != 0;
+            _item = new BleDevice(_tmpDeviceAddress,_tmpDeviceName,_tmpRssi,_tmpFirstSeen,_tmpLastSeen,_tmpIsIgnored,_tmpLabel,_tmpIsTracked,_tmpFollowingScore,_tmpDeviceType,_tmpManufacturer,_tmpServices,_tmpDetectionCount,_tmpConsecutiveDetections,_tmpMaxConsecutiveDetections,_tmpAverageRssi,_tmpRssiVariation,_tmpLastMovementTime,_tmpIsStationary,_tmpDetectionPattern,_tmpSuspiciousActivityScore,_tmpLastAlertTime,_tmpIsKnownTracker,_tmpTrackerType,_tmpAdvertisingInterval,_tmpRotatingIdentifier);
+            _result.add(_item);
+          }
+          return _result;
+        } finally {
+          _cursor.close();
+        }
+      }
+
+      @Override
+      protected void finalize() {
+        _statement.release();
+      }
+    });
+  }
+
+  @Override
+  public Flow<List<BleDevice>> getSuspiciousDevicesByActivity(final float threshold) {
+    final String _sql = "SELECT * FROM ble_devices WHERE suspiciousActivityScore > ? ORDER BY suspiciousActivityScore DESC";
+    final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 1);
+    int _argIndex = 1;
+    _statement.bindDouble(_argIndex, threshold);
     return CoroutinesRoom.createFlow(__db, false, new String[]{"ble_devices"}, new Callable<List<BleDevice>>() {
       @Override
       public List<BleDevice> call() throws Exception {
