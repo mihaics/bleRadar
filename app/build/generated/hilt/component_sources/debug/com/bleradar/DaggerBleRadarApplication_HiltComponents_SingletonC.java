@@ -7,6 +7,7 @@ import android.view.View;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.SavedStateHandle;
 import androidx.lifecycle.ViewModel;
+import com.bleradar.analysis.AdvancedTrackerDetector;
 import com.bleradar.analysis.FollowingDetector;
 import com.bleradar.data.database.BleRadarDatabase;
 import com.bleradar.di.DatabaseModule;
@@ -556,6 +557,8 @@ public final class DaggerBleRadarApplication_HiltComponents_SingletonC {
     private BleRadarService injectBleRadarService2(BleRadarService instance) {
       BleRadarService_MembersInjector.injectDatabase(instance, singletonCImpl.provideDatabaseProvider.get());
       BleRadarService_MembersInjector.injectLocationTracker(instance, singletonCImpl.locationTrackerProvider.get());
+      BleRadarService_MembersInjector.injectDeviceRepository(instance, singletonCImpl.deviceRepositoryProvider.get());
+      BleRadarService_MembersInjector.injectAdvancedTrackerDetector(instance, singletonCImpl.advancedTrackerDetectorProvider.get());
       return instance;
     }
   }
@@ -573,6 +576,8 @@ public final class DaggerBleRadarApplication_HiltComponents_SingletonC {
 
     private Provider<LocationTracker> locationTrackerProvider;
 
+    private Provider<AdvancedTrackerDetector> advancedTrackerDetectorProvider;
+
     private SingletonCImpl(ApplicationContextModule applicationContextModuleParam) {
       this.applicationContextModule = applicationContextModuleParam;
       initialize(applicationContextModuleParam);
@@ -585,6 +590,7 @@ public final class DaggerBleRadarApplication_HiltComponents_SingletonC {
       this.deviceRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<DeviceRepository>(singletonCImpl, 0));
       this.followingDetectorProvider = DoubleCheck.provider(new SwitchingProvider<FollowingDetector>(singletonCImpl, 2));
       this.locationTrackerProvider = DoubleCheck.provider(new SwitchingProvider<LocationTracker>(singletonCImpl, 3));
+      this.advancedTrackerDetectorProvider = DoubleCheck.provider(new SwitchingProvider<AdvancedTrackerDetector>(singletonCImpl, 4));
     }
 
     @Override
@@ -631,6 +637,9 @@ public final class DaggerBleRadarApplication_HiltComponents_SingletonC {
 
           case 3: // com.bleradar.location.LocationTracker 
           return (T) new LocationTracker(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule));
+
+          case 4: // com.bleradar.analysis.AdvancedTrackerDetector 
+          return (T) new AdvancedTrackerDetector(singletonCImpl.deviceRepositoryProvider.get());
 
           default: throw new AssertionError(id);
         }

@@ -47,6 +47,8 @@ public final class BleDeviceDao_Impl implements BleDeviceDao {
 
   private final SharedSQLiteStatement __preparedStmtOfUpdateLastAlertTime;
 
+  private final SharedSQLiteStatement __preparedStmtOfUpdateSuspiciousScore;
+
   private final SharedSQLiteStatement __preparedStmtOfDeleteDevice;
 
   public BleDeviceDao_Impl(RoomDatabase __db) {
@@ -241,6 +243,13 @@ public final class BleDeviceDao_Impl implements BleDeviceDao {
       @Override
       public String createQuery() {
         final String _query = "UPDATE ble_devices SET lastAlertTime = ? WHERE deviceAddress = ?";
+        return _query;
+      }
+    };
+    this.__preparedStmtOfUpdateSuspiciousScore = new SharedSQLiteStatement(__db) {
+      @Override
+      public String createQuery() {
+        final String _query = "UPDATE ble_devices SET suspiciousActivityScore = ? WHERE deviceAddress = ?";
         return _query;
       }
     };
@@ -480,6 +489,34 @@ public final class BleDeviceDao_Impl implements BleDeviceDao {
         } finally {
           __db.endTransaction();
           __preparedStmtOfUpdateLastAlertTime.release(_stmt);
+        }
+      }
+    }, continuation);
+  }
+
+  @Override
+  public Object updateSuspiciousScore(final String address, final float score,
+      final Continuation<? super Unit> continuation) {
+    return CoroutinesRoom.execute(__db, true, new Callable<Unit>() {
+      @Override
+      public Unit call() throws Exception {
+        final SupportSQLiteStatement _stmt = __preparedStmtOfUpdateSuspiciousScore.acquire();
+        int _argIndex = 1;
+        _stmt.bindDouble(_argIndex, score);
+        _argIndex = 2;
+        if (address == null) {
+          _stmt.bindNull(_argIndex);
+        } else {
+          _stmt.bindString(_argIndex, address);
+        }
+        __db.beginTransaction();
+        try {
+          _stmt.executeUpdateDelete();
+          __db.setTransactionSuccessful();
+          return Unit.INSTANCE;
+        } finally {
+          __db.endTransaction();
+          __preparedStmtOfUpdateSuspiciousScore.release(_stmt);
         }
       }
     }, continuation);
