@@ -1,9 +1,11 @@
 package com.bleradar.ui.viewmodel
 
+import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.bleradar.preferences.SettingsManager
 import com.bleradar.repository.DeviceRepository
 import com.bleradar.service.BleRadarService
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -17,13 +19,14 @@ import javax.inject.Inject
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val deviceRepository: DeviceRepository
+    private val deviceRepository: DeviceRepository,
+    private val settingsManager: SettingsManager
 ) : ViewModel() {
     
-    private val _scanInterval = MutableStateFlow(5)
+    private val _scanInterval = MutableStateFlow(settingsManager.scanIntervalMinutes)
     val scanInterval: StateFlow<Int> = _scanInterval.asStateFlow()
     
-    private val _isServiceRunning = MutableStateFlow(false)
+    private val _isServiceRunning = MutableStateFlow(isServiceActuallyRunning())
     val isServiceRunning: StateFlow<Boolean> = _isServiceRunning.asStateFlow()
     
     private val _databaseSize = MutableStateFlow("Calculating...")
@@ -31,23 +34,53 @@ class SettingsViewModel @Inject constructor(
     
     init {
         refreshDatabaseSize()
+        _isServiceRunning.value = isServiceActuallyRunning()
     }
     
     fun setScanInterval(minutes: Int) {
         _scanInterval.value = minutes
-        // In a real app, you'd save this to preferences and update the service
+        settingsManager.scanIntervalMinutes = minutes
+        
+        // If service is running, restart it with new interval
+        if (_isServiceRunning.value) {
+            restartServiceWithNewSettings()
+        }
     }
     
     fun startService() {
         val intent = Intent(context, BleRadarService::class.java)
         context.startForegroundService(intent)
+        settingsManager.isServiceEnabled = true
         _isServiceRunning.value = true
     }
     
     fun stopService() {
         val intent = Intent(context, BleRadarService::class.java)
         context.stopService(intent)
+        settingsManager.isServiceEnabled = false
         _isServiceRunning.value = false
+    }
+    
+    private fun restartServiceWithNewSettings() {
+        val intent = Intent(context, BleRadarService::class.java)
+        context.stopService(intent)
+        
+        // Small delay to ensure service is stopped before restarting
+        viewModelScope.launch {
+            kotlinx.coroutines.delay(1000)
+            context.startForegroundService(intent)
+        }
+    }
+    
+    private fun isServiceActuallyRunning(): Boolean {
+        val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        @Suppress("DEPRECATION")
+        for (service in activityManager.getRunningServices(Integer.MAX_VALUE)) {
+            if (BleRadarService::class.java.name == service.service.className) {
+                return true
+            }
+        }
+        return false
     }
     
     fun refreshDatabaseSize() {

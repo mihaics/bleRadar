@@ -29,6 +29,7 @@ import com.bleradar.analysis.AdvancedTrackerDetector
 import com.bleradar.analysis.TrackerAnalysisResult
 import com.bleradar.analysis.RiskLevel
 import com.bleradar.repository.DeviceRepository
+import com.bleradar.preferences.SettingsManager
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
@@ -48,6 +49,9 @@ class BleRadarService : Service() {
     
     @Inject
     lateinit var advancedTrackerDetector: AdvancedTrackerDetector
+    
+    @Inject
+    lateinit var settingsManager: SettingsManager
 
     private var bluetoothAdapter: BluetoothAdapter? = null
     private var bluetoothLeScanner: BluetoothLeScanner? = null
@@ -193,7 +197,9 @@ class BleRadarService : Service() {
             
             while (isActive) {
                 performScan()
-                delay(SCAN_INTERVAL_MS)
+                // Use configurable scan interval from settings
+                val scanIntervalMs = settingsManager.getScanIntervalMillis()
+                delay(scanIntervalMs)
             }
         }
     }
