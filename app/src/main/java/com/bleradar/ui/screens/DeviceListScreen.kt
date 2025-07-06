@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bleradar.ui.viewmodel.DeviceListViewModel
@@ -178,33 +179,66 @@ fun DeviceCard(
             
             // Action buttons
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 OutlinedButton(
                     onClick = onIgnore,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(56.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                 ) {
-                    Icon(Icons.Default.Close, contentDescription = "Ignore")
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Ignore")
+                    Icon(
+                        Icons.Default.Close, 
+                        contentDescription = "Ignore",
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        "Ignore",
+                        fontSize = 12.sp,
+                        maxLines = 1
+                    )
                 }
                 
                 OutlinedButton(
                     onClick = onLabel,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(56.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                 ) {
-                    Icon(Icons.Default.Edit, contentDescription = "Label")
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Label")
+                    Icon(
+                        Icons.Default.Edit, 
+                        contentDescription = "Label",
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        "Label",
+                        fontSize = 12.sp,
+                        maxLines = 1
+                    )
                 }
                 
                 Button(
                     onClick = onTrack,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(56.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = "Track")
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(if (device.isTracked) "Untrack" else "Track")
+                    Icon(
+                        Icons.Default.Add, 
+                        contentDescription = "Track",
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        if (device.isTracked) "Untrack" else "Track",
+                        fontSize = 12.sp,
+                        maxLines = 1
+                    )
                 }
             }
         }
@@ -235,13 +269,17 @@ fun LabelDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { onConfirm(label) }
+                onClick = { onConfirm(label) },
+                modifier = Modifier.height(48.dp)
             ) {
                 Text("Save")
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.height(48.dp)
+            ) {
                 Text("Cancel")
             }
         }

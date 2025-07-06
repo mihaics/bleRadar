@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bleradar.ui.viewmodel.SettingsViewModel
@@ -145,27 +146,49 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.height(12.dp))
                 
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     OutlinedButton(
                         onClick = { viewModel.refreshDatabaseSize() },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(56.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                     ) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Refresh")
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Refresh")
+                        Icon(
+                            Icons.Default.Refresh, 
+                            contentDescription = "Refresh",
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            "Refresh",
+                            fontSize = 12.sp,
+                            maxLines = 1
+                        )
                     }
                     
                     Button(
                         onClick = { showClearDialog = true },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(56.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color.Red
-                        )
+                        ),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                     ) {
-                        Icon(Icons.Default.Delete, contentDescription = "Clear")
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Clear")
+                        Icon(
+                            Icons.Default.Delete, 
+                            contentDescription = "Clear",
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            "Clear",
+                            fontSize = 12.sp,
+                            maxLines = 1
+                        )
                     }
                 }
             }
@@ -226,13 +249,17 @@ fun SettingsScreen(
                     onClick = {
                         viewModel.clearDatabase()
                         showClearDialog = false
-                    }
+                    },
+                    modifier = Modifier.height(48.dp)
                 ) {
                     Text("Clear", color = Color.Red)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showClearDialog = false }) {
+                TextButton(
+                    onClick = { showClearDialog = false },
+                    modifier = Modifier.height(48.dp)
+                ) {
                     Text("Cancel")
                 }
             }
