@@ -22,7 +22,13 @@ import com.bleradar.data.database.BleDevice
 import com.bleradar.data.database.BleDetection
 import com.bleradar.data.database.BleRadarDatabase
 import com.bleradar.data.database.LocationRecord
+import com.bleradar.data.database.DetectionPattern
+import com.bleradar.data.database.PatternType
 import com.bleradar.location.LocationTracker
+import com.bleradar.analysis.AdvancedTrackerDetector
+import com.bleradar.analysis.TrackerAnalysisResult
+import com.bleradar.analysis.RiskLevel
+import com.bleradar.repository.DeviceRepository
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
 import javax.inject.Inject
@@ -35,18 +41,29 @@ class BleRadarService : Service() {
     
     @Inject
     lateinit var locationTracker: LocationTracker
+    
+    @Inject
+    lateinit var deviceRepository: DeviceRepository
+    
+    @Inject
+    lateinit var advancedTrackerDetector: AdvancedTrackerDetector
 
     private var bluetoothAdapter: BluetoothAdapter? = null
     private var bluetoothLeScanner: BluetoothLeScanner? = null
     private var isScanning = false
     private var wakeLock: PowerManager.WakeLock? = null
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private var lastAnalysisTime = 0L
+    private val deviceDetectionCounts = mutableMapOf<String, Int>()
+    private val deviceFirstSeen = mutableMapOf<String, Long>()
 
     companion object {
         const val NOTIFICATION_ID = 1
         const val CHANNEL_ID = "BLE_RADAR_CHANNEL"
         const val SCAN_DURATION_MS = 10000L // 10 seconds
         const val SCAN_INTERVAL_MS = 30000L // 30 seconds between scans
+        const val ANALYSIS_INTERVAL_MS = 300000L // 5 minutes between analyses
+        const val ALERT_COOLDOWN_MS = 1800000L // 30 minutes between alerts for same device
     }
 
     override fun onCreate() {
@@ -401,9 +418,244 @@ class BleRadarService : Service() {
                     android.util.Log.e("BleRadarService", "Error storing location: ${e.message}")
                 }
             }
+            
+            // Enhanced tracking analysis
+            performEnhancedAnalysis(device.address, bleDevice)
+            
         } catch (e: Exception) {
             android.util.Log.e("BleRadarService", "Error processing scan result: ${e.message}")
         }
+    }
+    
+    private suspend fun performEnhancedAnalysis(deviceAddress: String, bleDevice: BleDevice) {
+        try {
+            val currentTime = System.currentTimeMillis()
+            
+            // Update detection counts
+            val currentCount = deviceDetectionCounts.getOrDefault(deviceAddress, 0) + 1
+            deviceDetectionCounts[deviceAddress] = currentCount
+            
+            // Track first seen
+            if (!deviceFirstSeen.containsKey(deviceAddress)) {
+                deviceFirstSeen[deviceAddress] = currentTime
+            }
+            
+            // Calculate enhanced metrics
+            val detections = try {
+                deviceRepository.getDetectionsForDeviceSince(
+                    deviceAddress, 
+                    currentTime - (24 * 60 * 60 * 1000) // Last 24 hours
+                ).first()
+            } catch (e: Exception) {
+                emptyList()
+            }
+            
+            if (detections.isNotEmpty()) {
+                val rssiValues = detections.map { it.rssi.toFloat() }
+                val avgRssi = rssiValues.average().toFloat()
+                val rssiVariation = calculateVariance(rssiValues)
+                
+                // Detect movement patterns
+                val lastMovement = detectLastMovement(detections)
+                val isStationary = isDeviceStationary(detections)
+                
+                // Check for known tracker signatures
+                val trackerInfo = identifyTrackerType(bleDevice)
+                
+                // Update device metrics
+                deviceRepository.updateDeviceMetrics(
+                    address = deviceAddress,
+                    count = currentCount,
+                    consecutive = calculateConsecutiveDetections(deviceAddress),
+                    maxConsecutive = getMaxConsecutiveDetections(deviceAddress),
+                    avgRssi = avgRssi,
+                    rssiVar = rssiVariation,
+                    lastMovement = lastMovement,
+                    stationary = isStationary,
+                    suspiciousScore = 0f, // Will be updated by analysis
+                    knownTracker = trackerInfo.first,
+                    trackerType = trackerInfo.second
+                )
+                
+                // Periodic advanced analysis
+                if (currentTime - lastAnalysisTime > ANALYSIS_INTERVAL_MS) {
+                    lastAnalysisTime = currentTime
+                    performAdvancedTrackerAnalysis(deviceAddress)
+                }
+            }
+            
+        } catch (e: Exception) {
+            android.util.Log.e("BleRadarService", "Error in enhanced analysis: ${e.message}")
+        }
+    }
+    
+    private suspend fun performAdvancedTrackerAnalysis(deviceAddress: String) {
+        try {
+            val analysisResult = advancedTrackerDetector.analyzeDeviceForTracking(deviceAddress)
+            
+            // Update suspicious activity score
+            deviceRepository.updateDeviceMetrics(
+                address = deviceAddress,
+                count = deviceDetectionCounts.getOrDefault(deviceAddress, 0),
+                consecutive = calculateConsecutiveDetections(deviceAddress),
+                maxConsecutive = getMaxConsecutiveDetections(deviceAddress),
+                avgRssi = 0f, // Keep existing
+                rssiVar = 0f, // Keep existing
+                lastMovement = 0L, // Keep existing
+                stationary = false, // Keep existing
+                suspiciousScore = analysisResult.overallScore,
+                knownTracker = false, // Keep existing
+                trackerType = null // Keep existing
+            )
+            
+            // Store detection patterns
+            analysisResult.analyses.forEach { analysis ->
+                val pattern = DetectionPattern(
+                    deviceAddress = deviceAddress,
+                    timestamp = System.currentTimeMillis(),
+                    patternType = analysis.type.value,
+                    confidence = analysis.confidence,
+                    metadata = analysis.metadata.entries.joinToString(";") { "${it.key}=${it.value}" }
+                )
+                deviceRepository.insertPattern(pattern)
+            }
+            
+            // Generate alerts for high-risk devices
+            if (analysisResult.riskLevel == RiskLevel.HIGH || analysisResult.riskLevel == RiskLevel.CRITICAL) {
+                handleTrackerAlert(deviceAddress, analysisResult)
+            }
+            
+        } catch (e: Exception) {
+            android.util.Log.e("BleRadarService", "Error in advanced tracker analysis: ${e.message}")
+        }
+    }
+    
+    private suspend fun handleTrackerAlert(deviceAddress: String, analysisResult: TrackerAnalysisResult) {
+        try {
+            val device = deviceRepository.getDevice(deviceAddress) ?: return
+            val currentTime = System.currentTimeMillis()
+            
+            // Check alert cooldown
+            if (currentTime - device.lastAlertTime < ALERT_COOLDOWN_MS) {
+                return
+            }
+            
+            // Update last alert time
+            deviceRepository.updateLastAlertTime(deviceAddress, currentTime)
+            
+            // Create alert notification
+            val alertNotification = createTrackerAlertNotification(device, analysisResult)
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.notify(deviceAddress.hashCode(), alertNotification)
+            
+            android.util.Log.w("BleRadarService", "Tracker alert for device: $deviceAddress, Risk: ${analysisResult.riskLevel}")
+            
+        } catch (e: Exception) {
+            android.util.Log.e("BleRadarService", "Error handling tracker alert: ${e.message}")
+        }
+    }
+    
+    private fun createTrackerAlertNotification(device: BleDevice, analysisResult: TrackerAnalysisResult): Notification {
+        val title = when (analysisResult.riskLevel) {
+            RiskLevel.CRITICAL -> "🚨 Critical Tracker Alert"
+            RiskLevel.HIGH -> "⚠️ Suspicious Tracker Detected"
+            else -> "📍 Tracker Activity"
+        }
+        
+        val description = when {
+            device.isKnownTracker -> "Known ${device.trackerType} tracker detected"
+            else -> "Suspicious BLE device showing tracking behavior"
+        }
+        
+        return NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle(title)
+            .setContentText(description)
+            .setSmallIcon(R.drawable.ic_radar)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .build()
+    }
+    
+    private fun calculateVariance(values: List<Float>): Float {
+        if (values.isEmpty()) return 0f
+        val mean = values.average()
+        return values.map { (it - mean) * (it - mean) }.average().toFloat()
+    }
+    
+    private fun detectLastMovement(detections: List<BleDetection>): Long {
+        if (detections.size < 2) return 0L
+        
+        val sorted = detections.sortedBy { it.timestamp }
+        for (i in sorted.size - 2 downTo 0) {
+            val curr = sorted[i + 1]
+            val prev = sorted[i]
+            
+            val distance = calculateDistance(
+                prev.latitude, prev.longitude,
+                curr.latitude, curr.longitude
+            )
+            
+            if (distance > 10.0) { // 10 meters movement threshold
+                return curr.timestamp
+            }
+        }
+        return sorted.firstOrNull()?.timestamp ?: 0L
+    }
+    
+    private fun isDeviceStationary(detections: List<BleDetection>): Boolean {
+        if (detections.size < 3) return false
+        
+        val recent = detections.takeLast(5)
+        val distances = recent.zipWithNext { a, b ->
+            calculateDistance(a.latitude, a.longitude, b.latitude, b.longitude)
+        }
+        
+        return distances.all { it < 20.0 } // All movements under 20 meters
+    }
+    
+    private fun identifyTrackerType(device: BleDevice): Pair<Boolean, String?> {
+        // Check known tracker signatures
+        device.manufacturer?.let { manufacturer ->
+            when (manufacturer) {
+                "Apple" -> return Pair(true, "AirTag")
+                "Samsung" -> return Pair(true, "SmartTag")
+                "Tile" -> return Pair(true, "Tile")
+                else -> { /* No match */ }
+            }
+        }
+        
+        device.services?.let { services ->
+            when {
+                services.contains("FE9F", ignoreCase = true) -> return Pair(true, "AirTag")
+                services.contains("FD5A", ignoreCase = true) -> return Pair(true, "SmartTag")
+                services.contains("FEED", ignoreCase = true) -> return Pair(true, "Tile")
+                else -> { /* No match */ }
+            }
+        }
+        
+        return Pair(false, null)
+    }
+    
+    private fun calculateConsecutiveDetections(deviceAddress: String): Int {
+        // This would need more sophisticated logic to track actual consecutive detections
+        return deviceDetectionCounts.getOrDefault(deviceAddress, 0).coerceAtMost(50)
+    }
+    
+    private fun getMaxConsecutiveDetections(deviceAddress: String): Int {
+        // This would track the maximum consecutive detections over time
+        return calculateConsecutiveDetections(deviceAddress)
+    }
+    
+    private fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+        val earthRadius = 6371000.0
+        val dLat = Math.toRadians(lat2 - lat1)
+        val dLon = Math.toRadians(lon2 - lon1)
+        val a = kotlin.math.sin(dLat / 2) * kotlin.math.sin(dLat / 2) +
+                kotlin.math.cos(Math.toRadians(lat1)) * kotlin.math.cos(Math.toRadians(lat2)) *
+                kotlin.math.sin(dLon / 2) * kotlin.math.sin(dLon / 2)
+        val c = 2 * kotlin.math.atan2(kotlin.math.sqrt(a), kotlin.math.sqrt(1 - a))
+        return earthRadius * c
     }
 
     private fun getManufacturerName(result: ScanResult): String? {

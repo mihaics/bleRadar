@@ -35,6 +35,18 @@ interface BleDeviceDao {
     @Query("UPDATE ble_devices SET followingScore = :score WHERE deviceAddress = :address")
     suspend fun updateFollowingScore(address: String, score: Float)
 
+    @Query("UPDATE ble_devices SET detectionCount = :count, consecutiveDetections = :consecutive, maxConsecutiveDetections = :maxConsecutive, averageRssi = :avgRssi, rssiVariation = :rssiVar, lastMovementTime = :lastMovement, isStationary = :stationary, suspiciousActivityScore = :suspiciousScore, isKnownTracker = :knownTracker, trackerType = :trackerType WHERE deviceAddress = :address")
+    suspend fun updateDeviceMetrics(address: String, count: Int, consecutive: Int, maxConsecutive: Int, avgRssi: Float, rssiVar: Float, lastMovement: Long, stationary: Boolean, suspiciousScore: Float, knownTracker: Boolean, trackerType: String?)
+
+    @Query("SELECT * FROM ble_devices WHERE isKnownTracker = 1 ORDER BY suspiciousActivityScore DESC")
+    fun getKnownTrackers(): Flow<List<BleDevice>>
+
+    @Query("SELECT * FROM ble_devices WHERE suspiciousActivityScore > :threshold ORDER BY suspiciousActivityScore DESC")
+    fun getSuspiciousDevicesByActivity(threshold: Float = 0.5f): Flow<List<BleDevice>>
+
+    @Query("UPDATE ble_devices SET lastAlertTime = :alertTime WHERE deviceAddress = :address")
+    suspend fun updateLastAlertTime(address: String, alertTime: Long)
+
     @Query("DELETE FROM ble_devices WHERE deviceAddress = :address")
     suspend fun deleteDevice(address: String)
 }

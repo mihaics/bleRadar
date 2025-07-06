@@ -38,17 +38,21 @@ public final class BleRadarDatabase_Impl extends BleRadarDatabase {
 
   private volatile LocationDao _locationDao;
 
+  private volatile DetectionPatternDao _detectionPatternDao;
+
   @Override
   protected SupportSQLiteOpenHelper createOpenHelper(DatabaseConfiguration configuration) {
-    final SupportSQLiteOpenHelper.Callback _openCallback = new RoomOpenHelper(configuration, new RoomOpenHelper.Delegate(1) {
+    final SupportSQLiteOpenHelper.Callback _openCallback = new RoomOpenHelper(configuration, new RoomOpenHelper.Delegate(2) {
       @Override
       public void createAllTables(SupportSQLiteDatabase _db) {
-        _db.execSQL("CREATE TABLE IF NOT EXISTS `ble_devices` (`deviceAddress` TEXT NOT NULL, `deviceName` TEXT, `rssi` INTEGER NOT NULL, `firstSeen` INTEGER NOT NULL, `lastSeen` INTEGER NOT NULL, `isIgnored` INTEGER NOT NULL, `label` TEXT, `isTracked` INTEGER NOT NULL, `followingScore` REAL NOT NULL, `deviceType` TEXT, `manufacturer` TEXT, `services` TEXT, PRIMARY KEY(`deviceAddress`))");
+        _db.execSQL("CREATE TABLE IF NOT EXISTS `ble_devices` (`deviceAddress` TEXT NOT NULL, `deviceName` TEXT, `rssi` INTEGER NOT NULL, `firstSeen` INTEGER NOT NULL, `lastSeen` INTEGER NOT NULL, `isIgnored` INTEGER NOT NULL, `label` TEXT, `isTracked` INTEGER NOT NULL, `followingScore` REAL NOT NULL, `deviceType` TEXT, `manufacturer` TEXT, `services` TEXT, `detectionCount` INTEGER NOT NULL, `consecutiveDetections` INTEGER NOT NULL, `maxConsecutiveDetections` INTEGER NOT NULL, `averageRssi` REAL NOT NULL, `rssiVariation` REAL NOT NULL, `lastMovementTime` INTEGER NOT NULL, `isStationary` INTEGER NOT NULL, `detectionPattern` TEXT, `suspiciousActivityScore` REAL NOT NULL, `lastAlertTime` INTEGER NOT NULL, `isKnownTracker` INTEGER NOT NULL, `trackerType` TEXT, `advertisingInterval` INTEGER NOT NULL, `rotatingIdentifier` INTEGER NOT NULL, PRIMARY KEY(`deviceAddress`))");
         _db.execSQL("CREATE TABLE IF NOT EXISTS `ble_detections` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `deviceAddress` TEXT NOT NULL, `timestamp` INTEGER NOT NULL, `rssi` INTEGER NOT NULL, `latitude` REAL NOT NULL, `longitude` REAL NOT NULL, `accuracy` REAL NOT NULL, `altitude` REAL, `speed` REAL, `bearing` REAL, FOREIGN KEY(`deviceAddress`) REFERENCES `ble_devices`(`deviceAddress`) ON UPDATE NO ACTION ON DELETE CASCADE )");
         _db.execSQL("CREATE INDEX IF NOT EXISTS `index_ble_detections_deviceAddress_timestamp` ON `ble_detections` (`deviceAddress`, `timestamp`)");
         _db.execSQL("CREATE TABLE IF NOT EXISTS `location_records` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `timestamp` INTEGER NOT NULL, `latitude` REAL NOT NULL, `longitude` REAL NOT NULL, `accuracy` REAL NOT NULL, `altitude` REAL, `speed` REAL, `bearing` REAL, `provider` TEXT NOT NULL)");
+        _db.execSQL("CREATE TABLE IF NOT EXISTS `detection_patterns` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `deviceAddress` TEXT NOT NULL, `timestamp` INTEGER NOT NULL, `patternType` TEXT NOT NULL, `confidence` REAL NOT NULL, `metadata` TEXT, FOREIGN KEY(`deviceAddress`) REFERENCES `ble_devices`(`deviceAddress`) ON UPDATE NO ACTION ON DELETE CASCADE )");
+        _db.execSQL("CREATE INDEX IF NOT EXISTS `index_detection_patterns_deviceAddress_timestamp` ON `detection_patterns` (`deviceAddress`, `timestamp`)");
         _db.execSQL("CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)");
-        _db.execSQL("INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '7d8a537de330ad2b2229d57c2090794d')");
+        _db.execSQL("INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '45dd35594cfe786543b8dd9ac9d79f91')");
       }
 
       @Override
@@ -56,6 +60,7 @@ public final class BleRadarDatabase_Impl extends BleRadarDatabase {
         _db.execSQL("DROP TABLE IF EXISTS `ble_devices`");
         _db.execSQL("DROP TABLE IF EXISTS `ble_detections`");
         _db.execSQL("DROP TABLE IF EXISTS `location_records`");
+        _db.execSQL("DROP TABLE IF EXISTS `detection_patterns`");
         if (mCallbacks != null) {
           for (int _i = 0, _size = mCallbacks.size(); _i < _size; _i++) {
             mCallbacks.get(_i).onDestructiveMigration(_db);
@@ -95,7 +100,7 @@ public final class BleRadarDatabase_Impl extends BleRadarDatabase {
 
       @Override
       public RoomOpenHelper.ValidationResult onValidateSchema(SupportSQLiteDatabase _db) {
-        final HashMap<String, TableInfo.Column> _columnsBleDevices = new HashMap<String, TableInfo.Column>(12);
+        final HashMap<String, TableInfo.Column> _columnsBleDevices = new HashMap<String, TableInfo.Column>(26);
         _columnsBleDevices.put("deviceAddress", new TableInfo.Column("deviceAddress", "TEXT", true, 1, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsBleDevices.put("deviceName", new TableInfo.Column("deviceName", "TEXT", false, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsBleDevices.put("rssi", new TableInfo.Column("rssi", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
@@ -108,6 +113,20 @@ public final class BleRadarDatabase_Impl extends BleRadarDatabase {
         _columnsBleDevices.put("deviceType", new TableInfo.Column("deviceType", "TEXT", false, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsBleDevices.put("manufacturer", new TableInfo.Column("manufacturer", "TEXT", false, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsBleDevices.put("services", new TableInfo.Column("services", "TEXT", false, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsBleDevices.put("detectionCount", new TableInfo.Column("detectionCount", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsBleDevices.put("consecutiveDetections", new TableInfo.Column("consecutiveDetections", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsBleDevices.put("maxConsecutiveDetections", new TableInfo.Column("maxConsecutiveDetections", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsBleDevices.put("averageRssi", new TableInfo.Column("averageRssi", "REAL", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsBleDevices.put("rssiVariation", new TableInfo.Column("rssiVariation", "REAL", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsBleDevices.put("lastMovementTime", new TableInfo.Column("lastMovementTime", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsBleDevices.put("isStationary", new TableInfo.Column("isStationary", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsBleDevices.put("detectionPattern", new TableInfo.Column("detectionPattern", "TEXT", false, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsBleDevices.put("suspiciousActivityScore", new TableInfo.Column("suspiciousActivityScore", "REAL", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsBleDevices.put("lastAlertTime", new TableInfo.Column("lastAlertTime", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsBleDevices.put("isKnownTracker", new TableInfo.Column("isKnownTracker", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsBleDevices.put("trackerType", new TableInfo.Column("trackerType", "TEXT", false, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsBleDevices.put("advertisingInterval", new TableInfo.Column("advertisingInterval", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsBleDevices.put("rotatingIdentifier", new TableInfo.Column("rotatingIdentifier", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         final HashSet<TableInfo.ForeignKey> _foreignKeysBleDevices = new HashSet<TableInfo.ForeignKey>(0);
         final HashSet<TableInfo.Index> _indicesBleDevices = new HashSet<TableInfo.Index>(0);
         final TableInfo _infoBleDevices = new TableInfo("ble_devices", _columnsBleDevices, _foreignKeysBleDevices, _indicesBleDevices);
@@ -158,9 +177,27 @@ public final class BleRadarDatabase_Impl extends BleRadarDatabase {
                   + " Expected:\n" + _infoLocationRecords + "\n"
                   + " Found:\n" + _existingLocationRecords);
         }
+        final HashMap<String, TableInfo.Column> _columnsDetectionPatterns = new HashMap<String, TableInfo.Column>(6);
+        _columnsDetectionPatterns.put("id", new TableInfo.Column("id", "INTEGER", true, 1, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsDetectionPatterns.put("deviceAddress", new TableInfo.Column("deviceAddress", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsDetectionPatterns.put("timestamp", new TableInfo.Column("timestamp", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsDetectionPatterns.put("patternType", new TableInfo.Column("patternType", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsDetectionPatterns.put("confidence", new TableInfo.Column("confidence", "REAL", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsDetectionPatterns.put("metadata", new TableInfo.Column("metadata", "TEXT", false, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        final HashSet<TableInfo.ForeignKey> _foreignKeysDetectionPatterns = new HashSet<TableInfo.ForeignKey>(1);
+        _foreignKeysDetectionPatterns.add(new TableInfo.ForeignKey("ble_devices", "CASCADE", "NO ACTION",Arrays.asList("deviceAddress"), Arrays.asList("deviceAddress")));
+        final HashSet<TableInfo.Index> _indicesDetectionPatterns = new HashSet<TableInfo.Index>(1);
+        _indicesDetectionPatterns.add(new TableInfo.Index("index_detection_patterns_deviceAddress_timestamp", false, Arrays.asList("deviceAddress","timestamp"), Arrays.asList("ASC","ASC")));
+        final TableInfo _infoDetectionPatterns = new TableInfo("detection_patterns", _columnsDetectionPatterns, _foreignKeysDetectionPatterns, _indicesDetectionPatterns);
+        final TableInfo _existingDetectionPatterns = TableInfo.read(_db, "detection_patterns");
+        if (! _infoDetectionPatterns.equals(_existingDetectionPatterns)) {
+          return new RoomOpenHelper.ValidationResult(false, "detection_patterns(com.bleradar.data.database.DetectionPattern).\n"
+                  + " Expected:\n" + _infoDetectionPatterns + "\n"
+                  + " Found:\n" + _existingDetectionPatterns);
+        }
         return new RoomOpenHelper.ValidationResult(true, null);
       }
-    }, "7d8a537de330ad2b2229d57c2090794d", "79341ed5b4f169f6a44c6626e7f8b441");
+    }, "45dd35594cfe786543b8dd9ac9d79f91", "d09e77dc3ae0e80d8374833451a4c7c8");
     final SupportSQLiteOpenHelper.Configuration _sqliteConfig = SupportSQLiteOpenHelper.Configuration.builder(configuration.context)
         .name(configuration.name)
         .callback(_openCallback)
@@ -173,7 +210,7 @@ public final class BleRadarDatabase_Impl extends BleRadarDatabase {
   protected InvalidationTracker createInvalidationTracker() {
     final HashMap<String, String> _shadowTablesMap = new HashMap<String, String>(0);
     HashMap<String, Set<String>> _viewTables = new HashMap<String, Set<String>>(0);
-    return new InvalidationTracker(this, _shadowTablesMap, _viewTables, "ble_devices","ble_detections","location_records");
+    return new InvalidationTracker(this, _shadowTablesMap, _viewTables, "ble_devices","ble_detections","location_records","detection_patterns");
   }
 
   @Override
@@ -192,6 +229,7 @@ public final class BleRadarDatabase_Impl extends BleRadarDatabase {
       _db.execSQL("DELETE FROM `ble_devices`");
       _db.execSQL("DELETE FROM `ble_detections`");
       _db.execSQL("DELETE FROM `location_records`");
+      _db.execSQL("DELETE FROM `detection_patterns`");
       super.setTransactionSuccessful();
     } finally {
       super.endTransaction();
@@ -211,6 +249,7 @@ public final class BleRadarDatabase_Impl extends BleRadarDatabase {
     _typeConvertersMap.put(BleDeviceDao.class, BleDeviceDao_Impl.getRequiredConverters());
     _typeConvertersMap.put(BleDetectionDao.class, BleDetectionDao_Impl.getRequiredConverters());
     _typeConvertersMap.put(LocationDao.class, LocationDao_Impl.getRequiredConverters());
+    _typeConvertersMap.put(DetectionPatternDao.class, DetectionPatternDao_Impl.getRequiredConverters());
     return _typeConvertersMap;
   }
 
@@ -264,6 +303,20 @@ public final class BleRadarDatabase_Impl extends BleRadarDatabase {
           _locationDao = new LocationDao_Impl(this);
         }
         return _locationDao;
+      }
+    }
+  }
+
+  @Override
+  public DetectionPatternDao detectionPatternDao() {
+    if (_detectionPatternDao != null) {
+      return _detectionPatternDao;
+    } else {
+      synchronized(this) {
+        if(_detectionPatternDao == null) {
+          _detectionPatternDao = new DetectionPatternDao_Impl(this);
+        }
+        return _detectionPatternDao;
       }
     }
   }

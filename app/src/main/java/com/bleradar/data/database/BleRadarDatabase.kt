@@ -6,14 +6,15 @@ import androidx.room.RoomDatabase
 import android.content.Context
 
 @Database(
-    entities = [BleDevice::class, BleDetection::class, LocationRecord::class],
-    version = 1,
+    entities = [BleDevice::class, BleDetection::class, LocationRecord::class, DetectionPattern::class],
+    version = 2,
     exportSchema = false
 )
 abstract class BleRadarDatabase : RoomDatabase() {
     abstract fun bleDeviceDao(): BleDeviceDao
     abstract fun bleDetectionDao(): BleDetectionDao
     abstract fun locationDao(): LocationDao
+    abstract fun detectionPatternDao(): DetectionPatternDao
 
     companion object {
         @Volatile
@@ -25,7 +26,7 @@ abstract class BleRadarDatabase : RoomDatabase() {
                     context.applicationContext,
                     BleRadarDatabase::class.java,
                     "ble_radar_database"
-                ).build()
+                ).fallbackToDestructiveMigration().build()
                 INSTANCE = instance
                 instance
             }

@@ -16,5 +16,19 @@ data class BleDevice(
     val followingScore: Float = 0f,
     val deviceType: String? = null,
     val manufacturer: String? = null,
-    val services: String? = null
+    val services: String? = null,
+    val detectionCount: Int = 0,
+    val consecutiveDetections: Int = 0,
+    val maxConsecutiveDetections: Int = 0,
+    val averageRssi: Float = 0f,
+    val rssiVariation: Float = 0f,
+    val lastMovementTime: Long = 0,
+    val isStationary: Boolean = false,
+    val detectionPattern: String? = null,
+    val suspiciousActivityScore: Float = 0f,
+    val lastAlertTime: Long = 0,
+    val isKnownTracker: Boolean = false,
+    val trackerType: String? = null,
+    val advertisingInterval: Long = 0,
+    val rotatingIdentifier: Boolean = false
 )

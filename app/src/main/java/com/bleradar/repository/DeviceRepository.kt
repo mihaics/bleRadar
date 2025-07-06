@@ -4,6 +4,7 @@ import com.bleradar.data.database.BleDevice
 import com.bleradar.data.database.BleDetection
 import com.bleradar.data.database.BleRadarDatabase
 import com.bleradar.data.database.LocationRecord
+import com.bleradar.data.database.DetectionPattern
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -70,4 +71,49 @@ class DeviceRepository @Inject constructor(
     
     suspend fun deleteOldLocations(cutoffTime: Long) = 
         database.locationDao().deleteOldLocations(cutoffTime)
+    
+    // Enhanced device methods
+    fun getKnownTrackers(): Flow<List<BleDevice>> = database.bleDeviceDao().getKnownTrackers()
+    
+    fun getSuspiciousDevicesByActivity(threshold: Float = 0.5f): Flow<List<BleDevice>> = 
+        database.bleDeviceDao().getSuspiciousDevicesByActivity(threshold)
+    
+    suspend fun updateDeviceMetrics(
+        address: String, 
+        count: Int, 
+        consecutive: Int, 
+        maxConsecutive: Int, 
+        avgRssi: Float, 
+        rssiVar: Float, 
+        lastMovement: Long, 
+        stationary: Boolean, 
+        suspiciousScore: Float, 
+        knownTracker: Boolean, 
+        trackerType: String?
+    ) = database.bleDeviceDao().updateDeviceMetrics(
+        address, count, consecutive, maxConsecutive, avgRssi, rssiVar, 
+        lastMovement, stationary, suspiciousScore, knownTracker, trackerType
+    )
+    
+    suspend fun updateLastAlertTime(address: String, alertTime: Long) = 
+        database.bleDeviceDao().updateLastAlertTime(address, alertTime)
+    
+    // Detection pattern methods
+    fun getPatternsForDevice(address: String): Flow<List<DetectionPattern>> = 
+        database.detectionPatternDao().getPatternsForDevice(address)
+    
+    fun getPatternsByType(type: String): Flow<List<DetectionPattern>> = 
+        database.detectionPatternDao().getPatternsByType(type)
+    
+    fun getPatternsSince(startTime: Long): Flow<List<DetectionPattern>> = 
+        database.detectionPatternDao().getPatternsSince(startTime)
+    
+    suspend fun getLastPatternForDevice(address: String, type: String): DetectionPattern? = 
+        database.detectionPatternDao().getLastPatternForDevice(address, type)
+    
+    suspend fun insertPattern(pattern: DetectionPattern) = 
+        database.detectionPatternDao().insertPattern(pattern)
+    
+    suspend fun deleteOldPatterns(cutoffTime: Long) = 
+        database.detectionPatternDao().deleteOldPatterns(cutoffTime)
 }

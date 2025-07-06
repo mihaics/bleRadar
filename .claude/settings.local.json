@@ -14,7 +14,8 @@
       "Bash(./validate-project.sh:*)",
       "Bash(export:*)",
       "Bash(grep:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(git add:*)"
     ],
     "deny": []
   }
