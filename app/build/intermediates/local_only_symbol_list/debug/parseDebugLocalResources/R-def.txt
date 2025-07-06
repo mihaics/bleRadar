@@ -1,0 +1,29 @@
+R_DEF: Internal format may change without notice
+local
+color black
+color purple_200
+color purple_500
+color purple_700
+color radar_primary
+color radar_secondary
+color teal_200
+color teal_700
+color warning_red
+color white
+drawable ic_launcher_background
+drawable ic_launcher_foreground
+drawable ic_radar
+mipmap ic_launcher
+mipmap ic_launcher_round
+string app_name
+string bluetooth_permission_required
+string device_found
+string device_ignored
+string device_labeled
+string following_alert
+string location_permission_required
+string scan_in_progress
+string tracking_enabled
+style Theme.BleRadar
+xml backup_rules
+xml data_extraction_rules
