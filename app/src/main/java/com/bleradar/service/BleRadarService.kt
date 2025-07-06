@@ -31,6 +31,7 @@ import com.bleradar.analysis.RiskLevel
 import com.bleradar.repository.DeviceRepository
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -447,7 +448,7 @@ class BleRadarService : Service() {
                     currentTime - (24 * 60 * 60 * 1000) // Last 24 hours
                 ).first()
             } catch (e: Exception) {
-                emptyList()
+                emptyList<BleDetection>()
             }
             
             if (detections.isNotEmpty()) {
