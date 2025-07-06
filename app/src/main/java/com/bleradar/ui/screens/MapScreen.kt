@@ -2,6 +2,9 @@ package com.bleradar.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -32,6 +35,29 @@ fun MapScreen(
     // Track if we've centered on user location yet
     var hasUserLocationCentered by remember { mutableStateOf(false) }
     
+    // Function to recenter map on current location
+    fun recenterOnLocation() {
+        currentLocation?.let { location ->
+            mapView?.let { map ->
+                map.controller.animateTo(GeoPoint(location.latitude, location.longitude))
+                map.controller.setZoom(15.0)
+            }
+        }
+    }
+    
+    // Function to zoom in/out
+    fun zoomIn() {
+        mapView?.let { map ->
+            map.controller.setZoom(map.zoomLevelDouble + 1.0)
+        }
+    }
+    
+    fun zoomOut() {
+        mapView?.let { map ->
+            map.controller.setZoom(map.zoomLevelDouble - 1.0)
+        }
+    }
+    
     // Update map when location or detections change
     LaunchedEffect(currentLocation, detections) {
         mapView?.let { map ->
@@ -59,14 +85,14 @@ fun MapScreen(
                 val marker = Marker(map)
                 marker.position = GeoPoint(detection.latitude, detection.longitude)
                 marker.title = "BLE Device"
-                marker.snippet = "RSSI: ${detection.rssi} dBm\nAddress: ${detection.deviceAddress}"
-                
-                // Set marker color based on RSSI
-                when {
-                    detection.rssi > -50 -> marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                    detection.rssi > -70 -> marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                    else -> marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                marker.snippet = buildString {
+                    append("RSSI: ${detection.rssi} dBm\n")
+                    append("Address: ${detection.deviceAddress}\n")
+                    append("Detected: ${java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(detection.timestamp))}")
                 }
+                
+                // Set marker appearance based on RSSI strength
+                marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                 
                 map.overlays.add(marker)
             }
@@ -124,6 +150,117 @@ fun MapScreen(
                         Icons.Default.Refresh,
                         contentDescription = "Refresh",
                         tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+        }
+        
+        // Map zoom and location controls (right side)
+        Column(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Recenter button
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = Color.White.copy(alpha = 0.9f)
+                )
+            ) {
+                IconButton(
+                    onClick = { recenterOnLocation() },
+                    enabled = currentLocation != null,
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        Icons.Default.LocationOn,
+                        contentDescription = "Recenter on location",
+                        tint = if (currentLocation != null) 
+                            MaterialTheme.colorScheme.primary 
+                        else 
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                    )
+                }
+            }
+            
+            // Zoom in button
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = Color.White.copy(alpha = 0.9f)
+                )
+            ) {
+                IconButton(
+                    onClick = { zoomIn() },
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = "Zoom in",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+            
+            // Zoom out button
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = Color.White.copy(alpha = 0.9f)
+                )
+            ) {
+                IconButton(
+                    onClick = { zoomOut() },
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = "Zoom out",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+        }
+        
+        // Location info overlay (bottom)
+        currentLocation?.let { location ->
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+                    .align(Alignment.BottomCenter),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color.White.copy(alpha = 0.9f)
+                )
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.LocationOn,
+                        contentDescription = "Location",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Column(
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = "Current Location",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.Black
+                        )
+                        Text(
+                            text = "${String.format("%.6f", location.latitude)}, ${String.format("%.6f", location.longitude)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.Gray
+                        )
+                    }
+                    Text(
+                        text = "±${String.format("%.0f", location.accuracy)}m",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray
                     )
                 }
             }
