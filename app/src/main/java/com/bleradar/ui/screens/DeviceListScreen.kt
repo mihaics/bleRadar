@@ -1,5 +1,6 @@
 package com.bleradar.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -37,9 +38,17 @@ fun DeviceListScreen(
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        // Header with scan status
+        // Header with scan status - clickable for emergency scan
         Card(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .let { 
+                    if (!isScanning) {
+                        it.clickable { viewModel.performEmergencyScan() }
+                    } else {
+                        it
+                    }
+                },
             colors = CardDefaults.cardColors(
                 containerColor = if (isScanning) Color.Green.copy(alpha = 0.1f) else Color.Gray.copy(alpha = 0.1f)
             )
@@ -49,11 +58,20 @@ fun DeviceListScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = if (isScanning) "Scanning..." else "Idle",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
+                Column {
+                    Text(
+                        text = if (isScanning) "Scanning..." else "Idle",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (!isScanning) {
+                        Text(
+                            text = "Tap for emergency scan",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                        )
+                    }
+                }
                 if (isScanning) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(24.dp),

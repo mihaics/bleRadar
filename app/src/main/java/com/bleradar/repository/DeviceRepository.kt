@@ -38,6 +38,11 @@ class DeviceRepository @Inject constructor(
     
     suspend fun deleteDevice(address: String) = database.bleDeviceDao().deleteDevice(address)
     
+    suspend fun getRecentDevices(sinceMillis: Long): List<BleDevice> {
+        val cutoffTime = System.currentTimeMillis() - sinceMillis
+        return database.bleDeviceDao().getRecentDevices(cutoffTime)
+    }
+    
     // Detection methods
     fun getDetectionsForDevice(address: String): Flow<List<BleDetection>> = 
         database.bleDetectionDao().getDetectionsForDevice(address)

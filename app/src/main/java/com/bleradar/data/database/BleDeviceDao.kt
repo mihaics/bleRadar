@@ -52,4 +52,7 @@ interface BleDeviceDao {
 
     @Query("DELETE FROM ble_devices WHERE deviceAddress = :address")
     suspend fun deleteDevice(address: String)
+    
+    @Query("SELECT * FROM ble_devices WHERE lastSeen > :since AND isIgnored = 0 ORDER BY lastSeen DESC")
+    suspend fun getRecentDevices(since: Long): List<BleDevice>
 }
