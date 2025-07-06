@@ -29,6 +29,9 @@ fun MapScreen(
     
     var mapView by remember { mutableStateOf<MapView?>(null) }
     
+    // Track if we've centered on user location yet
+    var hasUserLocationCentered by remember { mutableStateOf(false) }
+    
     // Update map when location or detections change
     LaunchedEffect(currentLocation, detections) {
         mapView?.let { map ->
@@ -43,8 +46,12 @@ fun MapScreen(
                 marker.snippet = "Current position"
                 map.overlays.add(marker)
                 
-                // Center map on current location
-                map.controller.setCenter(GeoPoint(location.latitude, location.longitude))
+                // Center map on current location (only once when first obtained)
+                if (!hasUserLocationCentered) {
+                    map.controller.setCenter(GeoPoint(location.latitude, location.longitude))
+                    map.controller.setZoom(15.0) // Zoom in for user location
+                    hasUserLocationCentered = true
+                }
             }
             
             // Add device detection markers
@@ -79,12 +86,11 @@ fun MapScreen(
                 MapView(context).apply {
                     setTileSource(TileSourceFactory.MAPNIK)
                     setMultiTouchControls(true)
-                    controller.setZoom(15.0)
+                    // Set initial zoom level suitable for Europe view
+                    controller.setZoom(4.0)
                     
-                    // Set default location if no current location
-                    if (currentLocation == null) {
-                        controller.setCenter(GeoPoint(0.0, 0.0))
-                    }
+                    // Set default location over Europe if no current location
+                    controller.setCenter(GeoPoint(50.0, 10.0))
                     
                     mapView = this
                 }

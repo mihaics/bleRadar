@@ -1,9 +1,9 @@
 -- Merging decision tree log ---
 manifest
-ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:2:1-63:12
-INJECTED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:2:1-63:12
-INJECTED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:2:1-63:12
-INJECTED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:2:1-63:12
+ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:2:1-64:12
+INJECTED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:2:1-64:12
+INJECTED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:2:1-64:12
+INJECTED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:2:1-64:12
 MERGED from [com.google.accompanist:accompanist-permissions:0.31.1-alpha] /home/mihai/.gradle/caches/8.13/transforms/78099dd0febe1f730f7740756d544a13/transformed/jetified-accompanist-permissions-0.31.1-alpha/AndroidManifest.xml:17:1-25:12
 MERGED from [androidx.hilt:hilt-navigation-compose:1.0.0] /home/mihai/.gradle/caches/8.13/transforms/5a4b5c3d0285f4c6cf1aeb1083191a9e/transformed/jetified-hilt-navigation-compose-1.0.0/AndroidManifest.xml:17:1-24:12
 MERGED from [androidx.hilt:hilt-navigation:1.0.0] /home/mihai/.gradle/caches/8.13/transforms/f2c951ac4f436f07b368a79e3687683b/transformed/jetified-hilt-navigation-1.0.0/AndroidManifest.xml:17:1-24:12
@@ -165,8 +165,8 @@ ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/Androi
 	android:name
 		ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:24:9-49
 application
-ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:27:5-61:19
-INJECTED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:27:5-61:19
+ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:27:5-62:19
+INJECTED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:27:5-62:19
 MERGED from [androidx.compose.ui:ui-test-manifest:1.5.1] /home/mihai/.gradle/caches/8.13/transforms/2d4739e7787acf6093fd46b4cebff02c/transformed/jetified-ui-test-manifest-1.5.1/AndroidManifest.xml:22:5-26:19
 MERGED from [androidx.compose.ui:ui-test-manifest:1.5.1] /home/mihai/.gradle/caches/8.13/transforms/2d4739e7787acf6093fd46b4cebff02c/transformed/jetified-ui-test-manifest-1.5.1/AndroidManifest.xml:22:5-26:19
 MERGED from [androidx.compose.ui:ui-tooling-android:1.5.1] /home/mihai/.gradle/caches/8.13/transforms/120a9d30a82e225aace5bce3c8860f91/transformed/jetified-ui-tooling-release/AndroidManifest.xml:22:5-26:19
@@ -208,55 +208,57 @@ MERGED from [androidx.startup:startup-runtime:1.1.1] /home/mihai/.gradle/caches/
 	android:roundIcon
 		ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:34:9-54
 	tools:targetApi
-		ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:37:9-29
+		ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:38:9-29
 	android:icon
 		ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:32:9-43
 	android:allowBackup
 		ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:29:9-35
 	android:theme
 		ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:36:9-46
+	android:enableOnBackInvokedCallback
+		ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:37:9-51
 	android:dataExtractionRules
 		ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:30:9-65
 	android:name
 		ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:28:9-44
 activity#com.bleradar.MainActivity
-ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:39:9-48:20
+ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:40:9-49:20
 	android:label
-		ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:42:13-45
+		ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:43:13-45
 	android:exported
-		ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:41:13-36
+		ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:42:13-36
 	android:theme
-		ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:43:13-50
+		ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:44:13-50
 	android:name
-		ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:40:13-41
+		ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:41:13-41
 intent-filter#action:name:android.intent.action.MAIN+category:name:android.intent.category.LAUNCHER
-ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:44:13-47:29
+ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:45:13-48:29
 action#android.intent.action.MAIN
-ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:45:17-69
+ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:46:17-69
 	android:name
-		ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:45:25-66
+		ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:46:25-66
 category#android.intent.category.LAUNCHER
-ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:46:17-77
+ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:47:17-77
 	android:name
-		ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:46:27-74
+		ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:47:27-74
 service#com.bleradar.service.BleRadarService
-ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:50:9-54:56
+ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:51:9-55:56
 	android:enabled
-		ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:52:13-35
+		ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:53:13-35
 	android:exported
-		ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:53:13-37
+		ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:54:13-37
 	android:foregroundServiceType
-		ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:54:13-53
+		ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:55:13-53
 	android:name
-		ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:51:13-52
+		ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:52:13-52
 receiver#com.bleradar.receiver.PeriodicScanReceiver
-ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:56:9-59:40
+ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:57:9-60:40
 	android:enabled
-		ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:58:13-35
+		ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:59:13-35
 	android:exported
-		ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:59:13-37
+		ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:60:13-37
 	android:name
-		ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:57:13-58
+		ADDED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml:58:13-58
 uses-sdk
 INJECTED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml reason: use-sdk injection requested
 INJECTED from /home/mihai/AndroidStudioProjects/bleRadar-claude/app/src/main/AndroidManifest.xml
