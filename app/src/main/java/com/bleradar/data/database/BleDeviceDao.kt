@@ -7,6 +7,9 @@ import kotlinx.coroutines.flow.Flow
 interface BleDeviceDao {
     @Query("SELECT * FROM ble_devices WHERE isIgnored = 0 ORDER BY lastSeen DESC")
     fun getAllDevices(): Flow<List<BleDevice>>
+    
+    @Query("SELECT * FROM ble_devices WHERE isIgnored = 0 ORDER BY lastSeen DESC")
+    suspend fun getAllDevicesSync(): List<BleDevice>
 
     @Query("SELECT * FROM ble_devices WHERE isTracked = 1")
     fun getTrackedDevices(): Flow<List<BleDevice>>

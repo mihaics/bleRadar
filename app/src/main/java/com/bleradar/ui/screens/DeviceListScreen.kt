@@ -4,10 +4,15 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bleradar.ui.viewmodel.DeviceListViewModel
+import com.bleradar.ui.viewmodel.DeviceSortOption
 import com.bleradar.data.database.BleDevice
 import java.text.SimpleDateFormat
 import java.util.*
@@ -26,12 +32,18 @@ import java.util.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DeviceListScreen(
+    onDeviceClick: (String) -> Unit = {},
     viewModel: DeviceListViewModel = hiltViewModel()
 ) {
     val devices by viewModel.devices.collectAsStateWithLifecycle(initialValue = emptyList())
     val isScanning by viewModel.isScanning.collectAsStateWithLifecycle(initialValue = false)
+    val sortOption by viewModel.sortOption.collectAsStateWithLifecycle()
+    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
+    val showNewDevicesOnly by viewModel.showNewDevicesOnly.collectAsStateWithLifecycle()
     
     var showLabelDialog by remember { mutableStateOf<BleDevice?>(null) }
+    var showSortDialog by remember { mutableStateOf(false) }
+    var showSearchBar by remember { mutableStateOf(false) }
     
     Column(
         modifier = Modifier
@@ -83,6 +95,79 @@ fun DeviceListScreen(
         
         Spacer(modifier = Modifier.height(16.dp))
         
+        // Search and filter controls
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Search toggle
+            IconButton(
+                onClick = { showSearchBar = !showSearchBar }
+            ) {
+                Icon(
+                    if (showSearchBar) Icons.Default.Clear else Icons.Default.Search,
+                    contentDescription = if (showSearchBar) "Hide Search" else "Show Search"
+                )
+            }
+            
+            // Sort button
+            OutlinedButton(
+                onClick = { showSortDialog = true },
+                modifier = Modifier.weight(1f)
+            ) {
+                Icon(
+                    Icons.Default.List,
+                    contentDescription = "Sort",
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    "Sort: ${sortOption.name.replace('_', ' ')}",
+                    fontSize = 12.sp
+                )
+            }
+            
+            // New devices filter
+            FilterChip(
+                selected = showNewDevicesOnly,
+                onClick = { viewModel.toggleNewDevicesOnly() },
+                label = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Star,
+                            contentDescription = "New devices",
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Text(
+                            "New",
+                            fontSize = 11.sp
+                        )
+                    }
+                }
+            )
+        }
+        
+        // Search bar
+        if (showSearchBar) {
+            Spacer(modifier = Modifier.height(8.dp))
+            TextField(
+                value = searchQuery,
+                onValueChange = viewModel::setSearchQuery,
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("Search devices...") },
+                leadingIcon = {
+                    Icon(Icons.Default.Search, contentDescription = "Search")
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(8.dp)
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
         // Device list
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -90,12 +175,26 @@ fun DeviceListScreen(
             items(devices) { device ->
                 DeviceCard(
                     device = device,
+                    isNew = viewModel.isDeviceNew(device),
+                    onClick = { onDeviceClick(device.deviceAddress) },
                     onIgnore = { viewModel.ignoreDevice(device.deviceAddress) },
                     onLabel = { showLabelDialog = device },
                     onTrack = { viewModel.toggleTracking(device.deviceAddress) }
                 )
             }
         }
+    }
+    
+    // Sort dialog
+    if (showSortDialog) {
+        SortDialog(
+            currentSort = sortOption,
+            onSortSelected = { option ->
+                viewModel.setSortOption(option)
+                showSortDialog = false
+            },
+            onDismiss = { showSortDialog = false }
+        )
     }
     
     // Label dialog
@@ -115,6 +214,8 @@ fun DeviceListScreen(
 @Composable
 fun DeviceCard(
     device: BleDevice,
+    isNew: Boolean = false,
+    onClick: () -> Unit = {},
     onIgnore: () -> Unit,
     onLabel: () -> Unit,
     onTrack: () -> Unit
@@ -122,7 +223,9 @@ fun DeviceCard(
     val dateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
     
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
         colors = CardDefaults.cardColors(
             containerColor = when {
                 device.followingScore > 0.7f -> Color.Red.copy(alpha = 0.1f)
@@ -140,11 +243,30 @@ fun DeviceCard(
                 verticalAlignment = Alignment.Top
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = device.deviceName ?: "Unknown Device",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = device.deviceName ?: "Unknown Device",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        if (isNew) {
+                            Surface(
+                                modifier = Modifier.size(16.dp),
+                                shape = RoundedCornerShape(50),
+                                color = Color.Green
+                            ) {
+                                Icon(
+                                    Icons.Default.Star,
+                                    contentDescription = "New device",
+                                    modifier = Modifier.size(10.dp).padding(3.dp),
+                                    tint = Color.White
+                                )
+                            }
+                        }
+                    }
                     Text(
                         text = device.deviceAddress,
                         style = MaterialTheme.typography.bodySmall,
@@ -170,6 +292,14 @@ fun DeviceCard(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                     )
+                    if (isNew) {
+                        Text(
+                            text = "NEW",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.Green,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
             
@@ -299,6 +429,52 @@ fun LabelDialog(
                 modifier = Modifier.height(48.dp)
             ) {
                 Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+fun SortDialog(
+    currentSort: DeviceSortOption,
+    onSortSelected: (DeviceSortOption) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Sort Devices") },
+        text = {
+            Column {
+                DeviceSortOption.values().forEach { option ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onSortSelected(option) }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = currentSort == option,
+                            onClick = { onSortSelected(option) }
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = when (option) {
+                                DeviceSortOption.LAST_SEEN -> "Last Seen"
+                                DeviceSortOption.FIRST_SEEN -> "First Seen"
+                                DeviceSortOption.NAME -> "Device Name"
+                                DeviceSortOption.RSSI -> "Signal Strength"
+                                DeviceSortOption.THREAT_LEVEL -> "Threat Level"
+                            },
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
             }
         }
     )

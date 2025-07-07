@@ -22,6 +22,7 @@ class MapViewModel @Inject constructor(
     private val _detections = MutableStateFlow<List<BleDetection>>(emptyList())
     val detections: StateFlow<List<BleDetection>> = _detections.asStateFlow()
     
+    val devices = deviceRepository.getAllDevices()
     val currentLocation = locationTracker.currentLocation
     
     init {
@@ -33,9 +34,23 @@ class MapViewModel @Inject constructor(
         viewModelScope.launch {
             val last24Hours = System.currentTimeMillis() - (24 * 60 * 60 * 1000)
             deviceRepository.getDetectionsSince(last24Hours).collect { detectionList ->
-                _detections.value = detectionList
+                // Filter out detections without valid location data
+                _detections.value = detectionList.filter { detection ->
+                    detection.latitude != 0.0 && detection.longitude != 0.0
+                }
             }
         }
+    }
+    
+    fun getDetectionsForDevice(deviceAddress: String): List<BleDetection> {
+        return _detections.value.filter { it.deviceAddress == deviceAddress }
+    }
+    
+    fun getDeviceLocationHistory(deviceAddress: String, days: Int = 7): List<BleDetection> {
+        val cutoffTime = System.currentTimeMillis() - (days * 24 * 60 * 60 * 1000)
+        return _detections.value.filter { detection ->
+            detection.deviceAddress == deviceAddress && detection.timestamp > cutoffTime
+        }.sortedByDescending { it.timestamp }
     }
     
     fun refreshDetections() {

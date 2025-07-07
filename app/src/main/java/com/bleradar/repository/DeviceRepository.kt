@@ -124,4 +124,11 @@ class DeviceRepository @Inject constructor(
     
     suspend fun deleteOldPatterns(cutoffTime: Long) = 
         database.detectionPatternDao().deleteOldPatterns(cutoffTime)
+    
+    // Synchronous methods for WorkManager
+    suspend fun getAllDevicesSync(): List<BleDevice> = 
+        database.bleDeviceDao().getAllDevicesSync()
+    
+    suspend fun getDetectionsForDeviceSync(address: String): List<BleDetection> = 
+        database.bleDetectionDao().getDetectionsForDeviceSync(address)
 }

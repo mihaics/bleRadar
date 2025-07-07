@@ -25,15 +25,29 @@ import org.osmdroid.views.overlay.Marker
 
 @Composable
 fun MapScreen(
+    focusedDeviceAddress: String? = null,
     viewModel: MapViewModel = hiltViewModel()
 ) {
     val detections by viewModel.detections.collectAsStateWithLifecycle(initialValue = emptyList())
     val currentLocation by viewModel.currentLocation.collectAsStateWithLifecycle(initialValue = null)
+    val devices by viewModel.devices.collectAsStateWithLifecycle(initialValue = emptyList())
     
     var mapView by remember { mutableStateOf<MapView?>(null) }
     
     // Track if we've centered on user location yet
     var hasUserLocationCentered by remember { mutableStateOf(false) }
+    
+    // Track if we've centered on focused device yet
+    var hasFocusedDeviceCentered by remember { mutableStateOf(false) }
+    
+    // Filter detections for focused device if specified
+    val filteredDetections = remember(detections, focusedDeviceAddress) {
+        if (focusedDeviceAddress != null) {
+            detections.filter { it.deviceAddress == focusedDeviceAddress }
+        } else {
+            detections
+        }
+    }
     
     // Function to recenter map on current location
     fun recenterOnLocation() {
@@ -58,8 +72,22 @@ fun MapScreen(
         }
     }
     
+    // Focus on device if specified
+    LaunchedEffect(focusedDeviceAddress, filteredDetections) {
+        if (focusedDeviceAddress != null && filteredDetections.isNotEmpty() && !hasFocusedDeviceCentered) {
+            val latestDetection = filteredDetections.maxByOrNull { it.timestamp }
+            latestDetection?.let { detection ->
+                mapView?.let { map ->
+                    map.controller.animateTo(GeoPoint(detection.latitude, detection.longitude))
+                    map.controller.setZoom(16.0)
+                    hasFocusedDeviceCentered = true
+                }
+            }
+        }
+    }
+    
     // Update map when location or detections change
-    LaunchedEffect(currentLocation, detections) {
+    LaunchedEffect(currentLocation, filteredDetections) {
         mapView?.let { map ->
             // Clear existing markers
             map.overlays.clear()
@@ -81,18 +109,49 @@ fun MapScreen(
             }
             
             // Add device detection markers
-            detections.forEach { detection ->
+            filteredDetections.forEach { detection ->
                 val marker = Marker(map)
                 marker.position = GeoPoint(detection.latitude, detection.longitude)
-                marker.title = "BLE Device"
+                
+                // Find device name from devices list
+                val deviceName = devices.find { it.deviceAddress == detection.deviceAddress }?.deviceName
+                    ?: "Unknown Device"
+                
+                marker.title = deviceName
                 marker.snippet = buildString {
-                    append("RSSI: ${detection.rssi} dBm\n")
                     append("Address: ${detection.deviceAddress}\n")
-                    append("Detected: ${java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(detection.timestamp))}")
+                    append("RSSI: ${detection.rssi} dBm\n")
+                    append("Detected: ${java.text.SimpleDateFormat("MMM dd, HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(detection.timestamp))}")
+                    
+                    // Add device info if available
+                    devices.find { it.deviceAddress == detection.deviceAddress }?.let { device ->
+                        if (device.label != null) {
+                            append("\nLabel: ${device.label}")
+                        }
+                        if (device.followingScore > 0.3f) {
+                            append("\nThreat: ${(device.followingScore * 100).toInt()}%")
+                        }
+                    }
                 }
                 
-                // Set marker appearance based on RSSI strength
+                // Set marker appearance based on threat level and focused device
                 marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                
+                // Color marker based on threat level or if it's focused
+                val device = devices.find { it.deviceAddress == detection.deviceAddress }
+                if (focusedDeviceAddress == detection.deviceAddress) {
+                    // Focused device - make it stand out
+                    marker.setAlpha(1.0f)
+                } else if (device != null && device.followingScore > 0.7f) {
+                    // High threat - red marker
+                    marker.setAlpha(0.8f)
+                } else if (device != null && device.followingScore > 0.5f) {
+                    // Medium threat - orange marker
+                    marker.setAlpha(0.7f)
+                } else {
+                    // Normal device
+                    marker.setAlpha(0.6f)
+                }
                 
                 map.overlays.add(marker)
             }
@@ -137,11 +196,25 @@ fun MapScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Devices: ${detections.size}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.Black
-                )
+                Column {
+                    Text(
+                        text = if (focusedDeviceAddress != null) {
+                            "Focused Device Locations: ${filteredDetections.size}"
+                        } else {
+                            "All Devices: ${filteredDetections.size}"
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.Black
+                    )
+                    if (focusedDeviceAddress != null) {
+                        val deviceName = devices.find { it.deviceAddress == focusedDeviceAddress }?.deviceName
+                        Text(
+                            text = deviceName ?: focusedDeviceAddress,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.Gray
+                        )
+                    }
+                }
                 IconButton(
                     onClick = { viewModel.refreshDetections() },
                     modifier = Modifier.size(36.dp)

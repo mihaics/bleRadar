@@ -7,6 +7,9 @@ import kotlinx.coroutines.flow.Flow
 interface BleDetectionDao {
     @Query("SELECT * FROM ble_detections WHERE deviceAddress = :address ORDER BY timestamp DESC")
     fun getDetectionsForDevice(address: String): Flow<List<BleDetection>>
+    
+    @Query("SELECT * FROM ble_detections WHERE deviceAddress = :address ORDER BY timestamp DESC")
+    suspend fun getDetectionsForDeviceSync(address: String): List<BleDetection>
 
     @Query("SELECT * FROM ble_detections WHERE timestamp >= :startTime ORDER BY timestamp DESC")
     fun getDetectionsSince(startTime: Long): Flow<List<BleDetection>>

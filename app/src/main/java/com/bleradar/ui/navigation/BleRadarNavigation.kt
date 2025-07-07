@@ -18,6 +18,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.bleradar.ui.screens.DeviceListScreen
+import com.bleradar.ui.screens.DeviceDetailScreen
 import com.bleradar.ui.screens.MapScreen
 import com.bleradar.ui.screens.SettingsScreen
 import com.bleradar.ui.screens.AlertsScreen
@@ -70,10 +71,32 @@ fun BleRadarNavigation() {
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(Screen.DeviceList.route) {
-                DeviceListScreen()
+                DeviceListScreen(
+                    onDeviceClick = { deviceAddress ->
+                        navController.navigate("device_detail/$deviceAddress")
+                    }
+                )
+            }
+            composable("device_detail/{deviceAddress}") { backStackEntry ->
+                val deviceAddress = backStackEntry.arguments?.getString("deviceAddress") ?: ""
+                DeviceDetailScreen(
+                    deviceAddress = deviceAddress,
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    },
+                    onShowOnMap = { address ->
+                        navController.navigate("${Screen.Map.route}?deviceAddress=$address")
+                    }
+                )
             }
             composable(Screen.Map.route) {
                 MapScreen()
+            }
+            composable("${Screen.Map.route}?deviceAddress={deviceAddress}") { backStackEntry ->
+                val deviceAddress = backStackEntry.arguments?.getString("deviceAddress")
+                MapScreen(
+                    focusedDeviceAddress = deviceAddress
+                )
             }
             composable(Screen.Alerts.route) {
                 AlertsScreen()
