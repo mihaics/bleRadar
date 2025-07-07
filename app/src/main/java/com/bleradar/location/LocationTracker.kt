@@ -42,10 +42,11 @@ class LocationTracker @Inject constructor(
     fun startLocationTracking() {
         if (!hasLocationPermission() || isTracking) return
         
-        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 30000L)
+        // More aggressive location tracking for better device tracking
+        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 60000L) // Every minute
             .setWaitForAccurateLocation(false)
-            .setMinUpdateIntervalMillis(15000L)
-            .setMaxUpdateDelayMillis(60000L)
+            .setMinUpdateIntervalMillis(30000L) // At least every 30 seconds
+            .setMaxUpdateDelayMillis(120000L) // Maximum 2 minutes delay
             .build()
         
         try {

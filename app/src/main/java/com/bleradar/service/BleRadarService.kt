@@ -76,6 +76,8 @@ class BleRadarService : Service() {
         setupNotificationChannel()
         initializeBluetooth()
         acquireWakeLock()
+        // Start location tracking for continuous GPS monitoring
+        locationTracker.startLocationTracking()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -114,6 +116,7 @@ class BleRadarService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         stopScanning()
+        locationTracker.stopLocationTracking()
         releaseWakeLock()
         serviceScope.cancel()
     }
@@ -179,7 +182,9 @@ class BleRadarService : Service() {
             PowerManager.PARTIAL_WAKE_LOCK,
             "BleRadar::ScanWakeLock"
         )
-        wakeLock?.acquire(10*60*1000L /*10 minutes*/)
+        // Don't specify timeout to prevent premature release
+        // The wake lock will be released when the service stops
+        wakeLock?.acquire()
     }
 
     private fun releaseWakeLock() {
@@ -238,6 +243,8 @@ class BleRadarService : Service() {
                 .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
                 .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
                 .setReportDelay(0) // Report immediately
+                .setMatchMode(ScanSettings.MATCH_MODE_AGGRESSIVE) // More aggressive matching
+                .setNumOfMatches(ScanSettings.MATCH_NUM_MAX_ADVERTISEMENT) // Max advertisements
                 .build()
 
             val scanFilters = listOf<ScanFilter>()
@@ -623,8 +630,20 @@ class BleRadarService : Service() {
         device.services?.let { services ->
             when {
                 services.contains("FE9F", ignoreCase = true) -> return Pair(true, "AirTag")
-                services.contains("FD5A", ignoreCase = true) -> return Pair(true, "SmartTag")
+                services.contains("FD5A", ignoreCase = true) -> return Pair(true, "SmartTag") // Samsung SmartTag+
+                services.contains("FDCC", ignoreCase = true) -> return Pair(true, "SmartTag") // Samsung SmartTag2
                 services.contains("FEED", ignoreCase = true) -> return Pair(true, "Tile")
+                services.contains("FE2C", ignoreCase = true) -> return Pair(true, "Nordic") // Nordic tracking devices
+                else -> { /* No match */ }
+            }
+        }
+        
+        // Check for Samsung tracker patterns by device name
+        device.deviceName?.let { name ->
+            when {
+                name.contains("Galaxy SmartTag", ignoreCase = true) -> return Pair(true, "SmartTag")
+                name.contains("SmartTag", ignoreCase = true) -> return Pair(true, "SmartTag")
+                name.contains("SM-", ignoreCase = true) -> return Pair(true, "Samsung Device")
                 else -> { /* No match */ }
             }
         }
