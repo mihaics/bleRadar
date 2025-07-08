@@ -34,19 +34,42 @@ fun MapScreen(
     
     var mapView by remember { mutableStateOf<MapView?>(null) }
     
-    // Track if we've centered on user location yet
+    // Track if we've centered on user location yet  
     var hasUserLocationCentered by remember { mutableStateOf(false) }
+    
+    // Reset location centered flag when refresh is called
+    LaunchedEffect(detections) {
+        // Allow recentering when detections are refreshed
+    }
     
     // Track if we've centered on focused device yet
     var hasFocusedDeviceCentered by remember { mutableStateOf(false) }
     
+    // Filter state
+    var showOnlyThreatDevices by remember { mutableStateOf(false) }
+    var showOnlyRecentDevices by remember { mutableStateOf(false) }
+    
     // Filter detections for focused device if specified
-    val filteredDetections = remember(detections, focusedDeviceAddress) {
-        if (focusedDeviceAddress != null) {
+    val filteredDetections = remember(detections, focusedDeviceAddress, devices, showOnlyThreatDevices, showOnlyRecentDevices) {
+        var filtered = if (focusedDeviceAddress != null) {
             detections.filter { it.deviceAddress == focusedDeviceAddress }
         } else {
             detections
         }
+        
+        // Apply threat filter
+        if (showOnlyThreatDevices) {
+            val threatDeviceAddresses = devices.filter { it.followingScore > 0.5f }.map { it.deviceAddress }
+            filtered = filtered.filter { it.deviceAddress in threatDeviceAddresses }
+        }
+        
+        // Apply recent filter (last 2 hours)
+        if (showOnlyRecentDevices) {
+            val twoHoursAgo = System.currentTimeMillis() - (2 * 60 * 60 * 1000)
+            filtered = filtered.filter { it.timestamp > twoHoursAgo }
+        }
+        
+        filtered
     }
     
     // Function to recenter map on current location
@@ -55,6 +78,8 @@ fun MapScreen(
             mapView?.let { map ->
                 map.controller.animateTo(GeoPoint(location.latitude, location.longitude))
                 map.controller.setZoom(15.0)
+                // Reset flag to allow automatic centering on next location update
+                hasUserLocationCentered = false
             }
         }
     }
@@ -191,39 +216,78 @@ fun MapScreen(
                 containerColor = Color.White.copy(alpha = 0.9f)
             )
         ) {
-            Row(
+            Column(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Column {
-                    Text(
-                        text = if (focusedDeviceAddress != null) {
-                            "Focused Device Locations: ${filteredDetections.size}"
-                        } else {
-                            "All Devices: ${filteredDetections.size}"
-                        },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.Black
-                    )
-                    if (focusedDeviceAddress != null) {
-                        val deviceName = devices.find { it.deviceAddress == focusedDeviceAddress }?.deviceName
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
                         Text(
-                            text = deviceName ?: focusedDeviceAddress,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.Gray
+                            text = if (focusedDeviceAddress != null) {
+                                "Focused Device Locations: ${filteredDetections.size}"
+                            } else {
+                                "All Devices: ${filteredDetections.size}"
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.Black
+                        )
+                        if (focusedDeviceAddress != null) {
+                            val deviceName = devices.find { it.deviceAddress == focusedDeviceAddress }?.deviceName
+                            Text(
+                                text = deviceName ?: focusedDeviceAddress,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.Gray
+                            )
+                        }
+                    }
+                    IconButton(
+                        onClick = { viewModel.refreshDetections() },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Refresh,
+                            contentDescription = "Refresh",
+                            tint = MaterialTheme.colorScheme.primary
                         )
                     }
                 }
-                IconButton(
-                    onClick = { viewModel.refreshDetections() },
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Refresh,
-                        contentDescription = "Refresh",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
+                
+                // Filter controls
+                if (focusedDeviceAddress == null) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedButton(
+                            onClick = { showOnlyThreatDevices = !showOnlyThreatDevices },
+                            modifier = Modifier.height(32.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = if (showOnlyThreatDevices) 
+                                    MaterialTheme.colorScheme.primaryContainer 
+                                else 
+                                    Color.Transparent
+                            ),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
+                        ) {
+                            Text("Threats Only", fontSize = 12.sp)
+                        }
+                        OutlinedButton(
+                            onClick = { showOnlyRecentDevices = !showOnlyRecentDevices },
+                            modifier = Modifier.height(32.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = if (showOnlyRecentDevices) 
+                                    MaterialTheme.colorScheme.primaryContainer 
+                                else 
+                                    Color.Transparent
+                            ),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
+                        ) {
+                            Text("Recent (2h)", fontSize = 12.sp)
+                        }
+                    }
                 }
             }
         }

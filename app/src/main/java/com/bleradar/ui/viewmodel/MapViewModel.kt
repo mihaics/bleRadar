@@ -55,6 +55,9 @@ class MapViewModel @Inject constructor(
     
     fun refreshDetections() {
         loadRecentDetections()
+        viewModelScope.launch {
+            locationTracker.getCurrentLocation()
+        }
     }
     
     override fun onCleared() {
