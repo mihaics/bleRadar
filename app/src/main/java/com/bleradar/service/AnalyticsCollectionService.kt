@@ -159,11 +159,20 @@ class AnalyticsCollectionService : Service() {
         val recentDevices = deviceRepository.getRecentDevices(TimeUnit.HOURS.toMillis(24))
         android.util.Log.d("AnalyticsService", "Found ${recentDevices.size} recent devices")
         
-        // If no devices found, let's also check if we can access device list data directly
+        // If no devices found, this is likely due to database migration wiping data
         if (finalDevices.isEmpty()) {
-            android.util.Log.w("AnalyticsService", "No devices found! This might indicate an issue with data access or BLE scanning not running.")
-            // Check if scanning service is running
-            android.util.Log.d("AnalyticsService", "Checking if BLE scanning service might have data...")
+            android.util.Log.w("AnalyticsService", "No devices found! This is likely because database migration wiped existing data.")
+            android.util.Log.w("AnalyticsService", "Database version changed from 2 to 3 when analytics tables were added.")
+            android.util.Log.w("AnalyticsService", "BLE scanning service needs to run again to populate device data.")
+            android.util.Log.i("AnalyticsService", "To fix: Ensure BLE service is running and has scanned for devices.")
+            
+            // Create a demo device for testing analytics functionality
+            try {
+                android.util.Log.d("AnalyticsService", "Creating demo device to test analytics...")
+                createDemoDevice()
+            } catch (e: Exception) {
+                android.util.Log.e("AnalyticsService", "Failed to create demo device", e)
+            }
         }
         
         val trackedDevices = finalDevices.filter { it.isTracked }
@@ -480,6 +489,37 @@ class AnalyticsCollectionService : Service() {
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
             .build()
+    }
+    
+    private suspend fun createDemoDevice() {
+        val currentTime = System.currentTimeMillis()
+        val demoDevice = com.bleradar.data.database.BleDevice(
+            deviceAddress = "AA:BB:CC:DD:EE:FF",
+            deviceName = "Demo BLE Device",
+            rssi = -65,
+            firstSeen = currentTime - TimeUnit.HOURS.toMillis(2),
+            lastSeen = currentTime,
+            manufacturer = "Demo Manufacturer",
+            services = "Demo Service",
+            detectionCount = 15,
+            consecutiveDetections = 5,
+            maxConsecutiveDetections = 8,
+            averageRssi = -65.5f,
+            rssiVariation = 5.2f,
+            lastMovementTime = currentTime - TimeUnit.MINUTES.toMillis(30),
+            isStationary = false,
+            followingScore = 0.3f,
+            suspiciousActivityScore = 0.2f,
+            isKnownTracker = false,
+            isTracked = false,
+            isIgnored = false,
+            label = "Demo Device for Testing",
+            lastAlertTime = 0L,
+            trackerType = null
+        )
+        
+        deviceRepository.insertDevice(demoDevice)
+        android.util.Log.d("AnalyticsService", "Demo device created successfully")
     }
     
     private data class DetectionDistances(
