@@ -125,12 +125,50 @@ class AnalyticsCollectionService : Service() {
             val currentTime = System.currentTimeMillis()
             val dayAgo = currentTime - TimeUnit.DAYS.toMillis(1)
         
+        // Try both sync and flow-based approaches to get devices
         val allDevices = deviceRepository.getAllDevicesSync()
-        val recentDevices = deviceRepository.getRecentDevices(TimeUnit.HOURS.toMillis(24))
+        android.util.Log.d("AnalyticsService", "Found ${allDevices.size} devices in database (sync method)")
         
-        val trackedDevices = allDevices.filter { it.isTracked }
-        val suspiciousDevices = allDevices.filter { it.suspiciousActivityScore > 0.5f }
-        val knownTrackers = allDevices.filter { it.isKnownTracker }
+        // If sync method returns empty, try getting the latest from flow
+        val finalDevices = if (allDevices.isEmpty()) {
+            android.util.Log.d("AnalyticsService", "Sync method returned empty, trying flow method...")
+            try {
+                // Collect the latest value from the flow
+                val flowDevices = mutableListOf<com.bleradar.data.database.BleDevice>()
+                deviceRepository.getAllDevices().collect { devices ->
+                    flowDevices.addAll(devices)
+                    return@collect // Exit after first emission
+                }
+                android.util.Log.d("AnalyticsService", "Flow method found ${flowDevices.size} devices")
+                flowDevices
+            } catch (e: Exception) {
+                android.util.Log.e("AnalyticsService", "Flow method failed: ${e.message}")
+                allDevices // Fall back to sync result (empty)
+            }
+        } else {
+            allDevices
+        }
+        
+        // Also check all devices including ignored ones for debugging
+        val allDevicesRaw = analyticsRepository.getAllDevicesIncludingIgnored()
+        android.util.Log.d("AnalyticsService", "Total devices in DB (including ignored): ${allDevicesRaw.size}")
+        finalDevices.forEach { device ->
+            android.util.Log.d("AnalyticsService", "Device: ${device.deviceAddress} - ${device.deviceName} - Ignored: ${device.isIgnored}")
+        }
+        
+        val recentDevices = deviceRepository.getRecentDevices(TimeUnit.HOURS.toMillis(24))
+        android.util.Log.d("AnalyticsService", "Found ${recentDevices.size} recent devices")
+        
+        // If no devices found, let's also check if we can access device list data directly
+        if (finalDevices.isEmpty()) {
+            android.util.Log.w("AnalyticsService", "No devices found! This might indicate an issue with data access or BLE scanning not running.")
+            // Check if scanning service is running
+            android.util.Log.d("AnalyticsService", "Checking if BLE scanning service might have data...")
+        }
+        
+        val trackedDevices = finalDevices.filter { it.isTracked }
+        val suspiciousDevices = finalDevices.filter { it.suspiciousActivityScore > 0.5f }
+        val knownTrackers = finalDevices.filter { it.isKnownTracker }
         
         val recentDetections = deviceRepository.getDetectionsSince(dayAgo)
         var activeDetections = 0
@@ -138,24 +176,24 @@ class AnalyticsCollectionService : Service() {
             activeDetections = detections.size
         }
         
-        val averageRssi = if (allDevices.isNotEmpty()) {
-            allDevices.map { it.averageRssi }.average().toFloat()
+        val averageRssi = if (finalDevices.isNotEmpty()) {
+            finalDevices.map { it.averageRssi }.average().toFloat()
         } else 0f
         
-        val averageFollowingScore = if (allDevices.isNotEmpty()) {
-            allDevices.map { it.followingScore }.average().toFloat()
+        val averageFollowingScore = if (finalDevices.isNotEmpty()) {
+            finalDevices.map { it.followingScore }.average().toFloat()
         } else 0f
         
-        val averageSuspiciousScore = if (allDevices.isNotEmpty()) {
-            allDevices.map { it.suspiciousActivityScore }.average().toFloat()
+        val averageSuspiciousScore = if (finalDevices.isNotEmpty()) {
+            finalDevices.map { it.suspiciousActivityScore }.average().toFloat()
         } else 0f
         
         // Calculate detection distances
-        val distances = calculateDetectionDistances(allDevices)
+        val distances = calculateDetectionDistances(finalDevices)
         
         val snapshot = AnalyticsSnapshot(
             timestamp = currentTime,
-            totalDevices = allDevices.size,
+            totalDevices = finalDevices.size,
             trackedDevices = trackedDevices.size,
             suspiciousDevices = suspiciousDevices.size,
             knownTrackers = knownTrackers.size,

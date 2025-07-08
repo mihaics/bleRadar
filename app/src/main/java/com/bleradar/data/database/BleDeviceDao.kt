@@ -58,4 +58,7 @@ interface BleDeviceDao {
     
     @Query("SELECT * FROM ble_devices WHERE lastSeen > :since AND isIgnored = 0 ORDER BY lastSeen DESC")
     suspend fun getRecentDevices(since: Long): List<BleDevice>
+    
+    @Query("SELECT * FROM ble_devices ORDER BY lastSeen DESC")
+    suspend fun getAllDevicesIncludingIgnored(): List<BleDevice>
 }

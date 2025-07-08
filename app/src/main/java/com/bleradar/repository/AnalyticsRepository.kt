@@ -26,6 +26,9 @@ class AnalyticsRepository @Inject constructor(
 ) {
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
     
+    // Debug method to get all devices including ignored ones
+    suspend fun getAllDevicesIncludingIgnored() = database.bleDeviceDao().getAllDevicesIncludingIgnored()
+    
     // Analytics Snapshot methods
     suspend fun insertSnapshot(snapshot: AnalyticsSnapshot) = 
         database.analyticsSnapshotDao().insertSnapshot(snapshot)
