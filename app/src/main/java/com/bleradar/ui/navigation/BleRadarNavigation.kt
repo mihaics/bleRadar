@@ -2,6 +2,7 @@ package com.bleradar.ui.navigation
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Settings
@@ -17,6 +18,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.bleradar.ui.screens.AnalyticsScreen
 import com.bleradar.ui.screens.DeviceListScreen
 import com.bleradar.ui.screens.DeviceDetailScreen
 import com.bleradar.ui.screens.MapScreen
@@ -31,6 +33,7 @@ fun BleRadarNavigation() {
     val items = listOf(
         Screen.DeviceList,
         Screen.Map,
+        Screen.Analytics,
         Screen.Alerts,
         Screen.Settings
     )
@@ -98,6 +101,9 @@ fun BleRadarNavigation() {
                     focusedDeviceAddress = deviceAddress
                 )
             }
+            composable(Screen.Analytics.route) {
+                AnalyticsScreen()
+            }
             composable(Screen.Alerts.route) {
                 AlertsScreen()
             }
@@ -111,6 +117,7 @@ fun BleRadarNavigation() {
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
     object DeviceList : Screen("device_list", "Devices", Icons.Default.List)
     object Map : Screen("map", "Map", Icons.Default.LocationOn)
+    object Analytics : Screen("analytics", "Analytics", Icons.Default.Info)
     object Alerts : Screen("alerts", "Alerts", Icons.Default.Warning)
     object Settings : Screen("settings", "Settings", Icons.Default.Settings)
 }

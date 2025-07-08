@@ -6,8 +6,8 @@ import androidx.room.RoomDatabase
 import android.content.Context
 
 @Database(
-    entities = [BleDevice::class, BleDetection::class, LocationRecord::class, DetectionPattern::class],
-    version = 2,
+    entities = [BleDevice::class, BleDetection::class, LocationRecord::class, DetectionPattern::class, AnalyticsSnapshot::class, DeviceAnalytics::class, TrendData::class],
+    version = 3,
     exportSchema = false
 )
 abstract class BleRadarDatabase : RoomDatabase() {
@@ -15,6 +15,9 @@ abstract class BleRadarDatabase : RoomDatabase() {
     abstract fun bleDetectionDao(): BleDetectionDao
     abstract fun locationDao(): LocationDao
     abstract fun detectionPatternDao(): DetectionPatternDao
+    abstract fun analyticsSnapshotDao(): AnalyticsSnapshotDao
+    abstract fun deviceAnalyticsDao(): DeviceAnalyticsDao
+    abstract fun trendDataDao(): TrendDataDao
 
     companion object {
         @Volatile

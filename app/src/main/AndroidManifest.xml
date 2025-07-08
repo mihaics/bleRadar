@@ -54,6 +54,11 @@
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
+        <service
+            android:name=".service.AnalyticsCollectionService"
+            android:enabled="true"
+            android:exported="false" />
+
         <receiver
             android:name=".receiver.PeriodicScanReceiver"
             android:enabled="true"

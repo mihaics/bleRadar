@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Intent
 import androidx.work.WorkManager
 import com.bleradar.preferences.SettingsManager
+import com.bleradar.service.AnalyticsCollectionService
 import com.bleradar.service.BleRadarService
 import com.bleradar.worker.WorkManagerScheduler
 import dagger.hilt.android.HiltAndroidApp
@@ -26,10 +27,6 @@ class BleRadarApplication : Application() {
             workManagerScheduler.scheduleDataCleanup()
         }
         
-        // Auto-start service if it was enabled previously
-        if (settingsManager.isServiceEnabled) {
-            val intent = Intent(this, BleRadarService::class.java)
-            startForegroundService(intent)
-        }
+        // Note: Service startup moved to MainActivity to comply with modern Android restrictions
     }
 }

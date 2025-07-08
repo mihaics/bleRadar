@@ -445,7 +445,7 @@ fun SortDialog(
         title = { Text("Sort Devices") },
         text = {
             Column {
-                DeviceSortOption.values().forEach { option ->
+                DeviceSortOption.entries.forEach { option ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
