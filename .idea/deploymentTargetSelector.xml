@@ -4,7 +4,7 @@
     <selectionStates>
       <SelectionState runConfigName="BLE Radar">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2025-07-08T03:30:02.139128199Z">
+        <DropdownSelection timestamp="2025-07-08T04:07:58.678496799Z">
           <Target type="DEFAULT_BOOT">
             <handle>
               <DeviceId pluginId="PhysicalDevice" identifier="serial=R5CX15EY16P" />
