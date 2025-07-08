@@ -134,30 +134,53 @@ class AnalyticsRepository @Inject constructor(
     }
     
     // Summary and aggregation methods
-    suspend fun getAnalyticsSummary(daysBack: Int = 7): AnalyticsSummary {
-        val startTime = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(daysBack.toLong())
-        val startDate = getDateString(daysBack)
-        
-        val totalDevices = database.deviceAnalyticsDao().getUniqueDeviceCount(startDate)
-        val totalDetections = database.analyticsSnapshotDao().getSnapshotCount(startTime)
-        val avgRssi = database.deviceAnalyticsDao().getAverageRssiTrend(startDate)
-        val avgFollowingScore = database.deviceAnalyticsDao().getAverageFollowingScoreTrend(startDate)
-        val avgSuspiciousScore = database.deviceAnalyticsDao().getAverageSuspiciousScoreTrend(startDate)
-        val totalDistance = database.deviceAnalyticsDao().getTotalDistanceTraveled(startDate)
-        val maxAlerts = database.analyticsSnapshotDao().getMaxAlertsInPeriod(startTime)
-        val newDevices = database.analyticsSnapshotDao().getTotalNewDevicesInPeriod(startTime)
-        
-        return AnalyticsSummary(
-            totalDevices = totalDevices,
-            totalDetections = totalDetections,
-            averageRssi = avgRssi,
-            averageFollowingScore = avgFollowingScore,
-            averageSuspiciousScore = avgSuspiciousScore,
-            totalDistanceTraveled = totalDistance,
-            maxAlertsInPeriod = maxAlerts,
-            newDevicesDiscovered = newDevices,
-            daysAnalyzed = daysBack
-        )
+    suspend fun getAnalyticsSummary(daysBack: Int = 7): AnalyticsSummary? {
+        return try {
+            // Get the most recent snapshot for immediate data
+            val recentSnapshot = database.analyticsSnapshotDao().getLatestSnapshot()
+            
+            if (recentSnapshot != null) {
+                AnalyticsSummary(
+                    totalDevices = recentSnapshot.totalDevices,
+                    totalDetections = recentSnapshot.activeDetections,
+                    averageRssi = recentSnapshot.averageRssi,
+                    averageFollowingScore = recentSnapshot.averageFollowingScore,
+                    averageSuspiciousScore = recentSnapshot.averageSuspiciousScore,
+                    totalDistanceTraveled = recentSnapshot.averageDetectionDistance,
+                    maxAlertsInPeriod = recentSnapshot.alertsTriggered,
+                    newDevicesDiscovered = recentSnapshot.newDevicesDiscovered,
+                    daysAnalyzed = daysBack
+                )
+            } else {
+                // Fallback: try to get data from device analytics if available
+                val startTime = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(daysBack.toLong())
+                val startDate = getDateString(daysBack)
+                
+                val totalDevices = try { database.deviceAnalyticsDao().getUniqueDeviceCount(startDate) } catch (e: Exception) { 0 }
+                val totalDetections = try { database.analyticsSnapshotDao().getSnapshotCount(startTime) } catch (e: Exception) { 0 }
+                val avgRssi = try { database.deviceAnalyticsDao().getAverageRssiTrend(startDate) } catch (e: Exception) { 0f }
+                val avgFollowingScore = try { database.deviceAnalyticsDao().getAverageFollowingScoreTrend(startDate) } catch (e: Exception) { 0f }
+                val avgSuspiciousScore = try { database.deviceAnalyticsDao().getAverageSuspiciousScoreTrend(startDate) } catch (e: Exception) { 0f }
+                val totalDistance = try { database.deviceAnalyticsDao().getTotalDistanceTraveled(startDate) } catch (e: Exception) { 0f }
+                val maxAlerts = try { database.analyticsSnapshotDao().getMaxAlertsInPeriod(startTime) } catch (e: Exception) { 0 }
+                val newDevices = try { database.analyticsSnapshotDao().getTotalNewDevicesInPeriod(startTime) } catch (e: Exception) { 0 }
+                
+                AnalyticsSummary(
+                    totalDevices = totalDevices,
+                    totalDetections = totalDetections,
+                    averageRssi = avgRssi,
+                    averageFollowingScore = avgFollowingScore,
+                    averageSuspiciousScore = avgSuspiciousScore,
+                    totalDistanceTraveled = totalDistance,
+                    maxAlertsInPeriod = maxAlerts,
+                    newDevicesDiscovered = newDevices,
+                    daysAnalyzed = daysBack
+                )
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("AnalyticsRepository", "Failed to get analytics summary", e)
+            null
+        }
     }
     
     suspend fun getWeeklyTrendComparison(): WeeklyTrendComparison {

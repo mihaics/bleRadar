@@ -223,9 +223,11 @@ class AnalyticsCollectionService : Service() {
         )
         
         analyticsRepository.insertSnapshot(snapshot)
+        android.util.Log.d("AnalyticsService", "Analytics snapshot saved successfully: ${snapshot.totalDevices} devices, ${snapshot.trackedDevices} tracked, ${snapshot.suspiciousDevices} suspicious")
         
         // Update trend data
         updateTrendData(snapshot)
+        android.util.Log.d("AnalyticsService", "Trend data updated successfully")
         } catch (e: Exception) {
             android.util.Log.e("AnalyticsService", "Failed to collect analytics snapshot", e)
         }

@@ -104,8 +104,11 @@ class AnalyticsViewModel @Inject constructor(
                 
                 // Load summary data with error handling
                 val summary = try {
-                    analyticsRepository.getAnalyticsSummary(daysBack)
+                    val result = analyticsRepository.getAnalyticsSummary(daysBack)
+                    android.util.Log.d("AnalyticsViewModel", "Loaded summary: ${result?.totalDevices ?: 0} total devices")
+                    result
                 } catch (e: Exception) {
+                    android.util.Log.e("AnalyticsViewModel", "Failed to load summary", e)
                     null
                 }
                 
@@ -118,12 +121,14 @@ class AnalyticsViewModel @Inject constructor(
                 // Load recent snapshots
                 analyticsRepository.getRecentSnapshots(50)
                     .catch { e -> 
+                        android.util.Log.e("AnalyticsViewModel", "Failed to load snapshots", e)
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             error = "Failed to load analytics: ${e.message}"
                         )
                     }
                     .collect { snapshots ->
+                        android.util.Log.d("AnalyticsViewModel", "Loaded ${snapshots?.size ?: 0} snapshots")
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             summary = summary,
