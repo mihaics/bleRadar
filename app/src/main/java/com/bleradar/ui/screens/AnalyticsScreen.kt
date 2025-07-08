@@ -216,14 +216,14 @@ fun SummaryCards(summary: com.bleradar.repository.AnalyticsSummary) {
     ) {
         item(key = "total_devices") {
             SummaryCard(
-                title = "Total Devices",
+                title = "Total",
                 value = summary.totalDevices.toString(),
                 color = MaterialTheme.colorScheme.primary
             )
         }
         item(key = "new_devices") {
             SummaryCard(
-                title = "New Devices",
+                title = "New",
                 value = summary.newDevicesDiscovered.toString(),
                 color = MaterialTheme.colorScheme.secondary
             )
@@ -237,7 +237,7 @@ fun SummaryCards(summary: com.bleradar.repository.AnalyticsSummary) {
         }
         item(key = "max_alerts") {
             SummaryCard(
-                title = "Max Alerts",
+                title = "Alerts",
                 value = summary.maxAlertsInPeriod.toString(),
                 color = MaterialTheme.colorScheme.error
             )
@@ -253,26 +253,31 @@ fun SummaryCard(
 ) {
     Card(
         modifier = Modifier
-            .width(120.dp)
-            .height(80.dp),
+            .widthIn(min = 100.dp, max = 160.dp)
+            .heightIn(min = 80.dp),
         colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.1f))
     ) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(12.dp),
-            verticalArrangement = Arrangement.Center
+                .fillMaxWidth()
+                .padding(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.bodySmall,
-                color = color
+                style = MaterialTheme.typography.labelSmall,
+                color = color,
+                maxLines = 2,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                lineHeight = MaterialTheme.typography.labelSmall.lineHeight
             )
             Text(
                 text = value,
-                style = MaterialTheme.typography.headlineSmall,
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = color
+                color = color,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
             )
         }
     }
