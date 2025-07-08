@@ -29,13 +29,13 @@ app_path=$0
 
 # Need this for daisy-chained symlinks.
 while
-    APP_HOME=${app_path%"${app_path##*/}"}  # leaves a trailing /; empty if no leading path
+    APP_HOME=${app_path%"${app_path##*/}"}
     [ -h "$app_path" ]
 do
     ls=$( ls -ld "$app_path" )
     link=${ls#*' -> '}
     case $link in             #(
-      /*)   app_path=$link ;; #(
+      /*)   app_path=$link ;;
       *)    app_path=$APP_HOME$link ;;
     esac
 done
@@ -69,9 +69,9 @@ msys=false
 darwin=false
 nonstop=false
 case "$( uname )" in                #(
-  CYGWIN* )         cygwin=true  ;; #(
-  Darwin* )         darwin=true  ;; #(
-  MSYS* | MINGW* )  msys=true    ;; #(
+  CYGWIN* )         cygwin=true  ;;
+  Darwin* )         darwin=true  ;;
+  MSYS* | MINGW* )  msys=true    ;;
   NONSTOP* )        nonstop=true ;;
 esac
 
@@ -113,8 +113,8 @@ if ! "$cygwin" && ! "$darwin" && ! "$nonstop" ; then
             warn "Could not query maximum file descriptor limit"
     esac
     case $MAX_FD in  #(
-      '' | soft) :;; #(
-      *)
+      '' | soft) :;;
+      *) 
         # In POSIX sh, ulimit -n is undefined. That's why the result is checked to see if it worked.
         # shellcheck disable=SC3045
         ulimit -n "$MAX_FD" ||
@@ -141,9 +141,9 @@ if "$cygwin" || "$msys" ; then
     for arg do
         if
             case $arg in                                #(
-              -*)   false ;;                            # don't mess with options #(
-              /?*)  t=${arg#/} t=/${t%%/*}              # looks like a POSIX filepath
-                    [ -e "$t" ] ;;                      #(
+              -*)   false ;;
+              /?*)  t=${arg#/} t=/${t%%/*}
+                    [ -e "$t" ] ;;
               *)    false ;;
             esac
         then
@@ -185,7 +185,7 @@ fi
 #
 # In Bash we could simply go:
 #
-#   readarray ARGS < <( xargs -n1 <<<"$var" ) &&
+#   readarray ARGS < <( xargs -n1 <<<"$var" )
 #   set -- "${ARGS[@]}" "$@"
 #
 # but POSIX shell has neither arrays nor command substitution, so instead we
@@ -220,9 +220,9 @@ args=
 # and iterate over the resulting list.
 for arg do
     case $arg in                                #(
-      -*)   set -- "$@" "$arg" ;;               # option
-      /?*)  set -- "$@" "$arg" ;;               # absolute path
-      *)    set -- "$@" "./$arg" ;;             # relative path
+      -*)   set -- "$@" "$arg" ;;
+      /?*)  set -- "$@" "$arg" ;;
+      *)    set -- "$@" "./$arg" ;;
     esac
 done
 
