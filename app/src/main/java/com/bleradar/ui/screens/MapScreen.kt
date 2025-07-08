@@ -6,6 +6,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,6 +19,8 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bleradar.ui.viewmodel.MapViewModel
+import com.bleradar.data.database.BleDetection
+import com.bleradar.data.database.BleDevice
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
@@ -49,6 +53,84 @@ fun MapScreen(
     var showOnlyThreatDevices by remember { mutableStateOf(false) }
     var showOnlyRecentDevices by remember { mutableStateOf(false) }
     
+    // Helper function to create individual device markers
+    fun createDeviceMarker(
+        map: MapView,
+        detection: BleDetection,
+        devices: List<BleDevice>,
+        focusedDeviceAddress: String?,
+        isInCluster: Boolean
+    ): Marker {
+        val marker = Marker(map)
+        marker.position = GeoPoint(detection.latitude, detection.longitude)
+        
+        // Find device info
+        val device = devices.find { it.deviceAddress == detection.deviceAddress }
+        val deviceName = device?.deviceName ?: "Unknown Device"
+        
+        marker.title = deviceName
+        marker.snippet = buildString {
+            append("Address: ${detection.deviceAddress}\n")
+            append("RSSI: ${detection.rssi} dBm\n")
+            append("Detected: ${java.text.SimpleDateFormat("MMM dd, HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(detection.timestamp))}")
+            
+            // Add device info if available
+            device?.let { dev ->
+                if (dev.label != null) {
+                    append("\nLabel: ${dev.label}")
+                }
+                if (dev.followingScore > 0.3f) {
+                    append("\nThreat: ${(dev.followingScore * 100).toInt()}%")
+                }
+                if (dev.isKnownTracker) {
+                    append("\n⚠️ Known Tracker")
+                }
+                if (dev.trackerType != null) {
+                    append("\nType: ${dev.trackerType}")
+                }
+            }
+        }
+        
+        // Enhanced marker appearance based on device characteristics
+        marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+        
+        val threatScore = device?.followingScore ?: 0f
+        when {
+            focusedDeviceAddress == detection.deviceAddress -> {
+                // Focused device - bright and prominent
+                marker.setAlpha(1.0f)
+                marker.title = "🎯 $deviceName"
+            }
+            device?.isKnownTracker == true -> {
+                // Known tracker - high visibility
+                marker.setAlpha(0.95f)
+                marker.title = "🚨 $deviceName"
+            }
+            threatScore > 0.7f -> {
+                // High threat - red marker
+                marker.setAlpha(0.9f)
+                marker.title = "🔴 $deviceName"
+            }
+            threatScore > 0.5f -> {
+                // Medium threat - orange marker
+                marker.setAlpha(0.8f)
+                marker.title = "🟠 $deviceName"
+            }
+            threatScore > 0.3f -> {
+                // Low threat - yellow marker
+                marker.setAlpha(0.7f)
+                marker.title = "🟡 $deviceName"
+            }
+            else -> {
+                // Normal device - blue marker
+                marker.setAlpha(0.6f)
+                marker.title = "🔵 $deviceName"
+            }
+        }
+        
+        return marker
+    }
+    
     // Filter detections for focused device if specified
     val filteredDetections = remember(detections, focusedDeviceAddress, devices, showOnlyThreatDevices, showOnlyRecentDevices) {
         var filtered = if (focusedDeviceAddress != null) {
@@ -72,12 +154,79 @@ fun MapScreen(
         filtered
     }
     
+    // Function to calculate optimal bounds for all visible markers
+    fun calculateOptimalBounds(): Pair<GeoPoint, Double>? {
+        val allPoints = mutableListOf<GeoPoint>()
+        
+        // Add current location if available
+        currentLocation?.let { location ->
+            allPoints.add(GeoPoint(location.latitude, location.longitude))
+        }
+        
+        // Add all filtered detection locations
+        filteredDetections.forEach { detection ->
+            allPoints.add(GeoPoint(detection.latitude, detection.longitude))
+        }
+        
+        if (allPoints.isEmpty()) return null
+        if (allPoints.size == 1) return Pair(allPoints[0], 15.0)
+        
+        // Calculate bounds
+        val minLat = allPoints.minOf { it.latitude }
+        val maxLat = allPoints.maxOf { it.latitude }
+        val minLon = allPoints.minOf { it.longitude }
+        val maxLon = allPoints.maxOf { it.longitude }
+        
+        // Calculate center point
+        val centerLat = (minLat + maxLat) / 2
+        val centerLon = (minLon + maxLon) / 2
+        val center = GeoPoint(centerLat, centerLon)
+        
+        // Calculate appropriate zoom level based on bounds with padding
+        val latDiff = maxLat - minLat
+        val lonDiff = maxLon - minLon
+        val maxDiff = maxOf(latDiff, lonDiff)
+        
+        // Add padding factor (20%) to ensure markers aren't at edge
+        val paddedDiff = maxDiff * 1.2
+        
+        val zoom = when {
+            paddedDiff > 10.0 -> 4.0   // Country/continent level
+            paddedDiff > 5.0 -> 6.0    // Large region
+            paddedDiff > 1.0 -> 8.0    // Region
+            paddedDiff > 0.5 -> 10.0   // City area
+            paddedDiff > 0.1 -> 12.0   // District
+            paddedDiff > 0.01 -> 14.0  // Neighborhood
+            paddedDiff > 0.001 -> 16.0 // Street level
+            paddedDiff > 0.0001 -> 17.0 // Very close
+            else -> 18.0            // Building level (max zoom)
+        }.coerceIn(4.0, 19.0) // Ensure zoom stays within OSM limits
+        
+        return Pair(center, zoom)
+    }
+    
+    // Function to fit all visible markers in view
+    fun fitMarkersInView() {
+        mapView?.let { map ->
+            calculateOptimalBounds()?.let { (center, zoom) ->
+                map.controller.animateTo(center)
+                map.controller.setZoom(zoom)
+            }
+        }
+    }
+    
     // Function to recenter map on current location
     fun recenterOnLocation() {
         currentLocation?.let { location ->
             mapView?.let { map ->
-                map.controller.animateTo(GeoPoint(location.latitude, location.longitude))
-                map.controller.setZoom(15.0)
+                if (filteredDetections.isEmpty()) {
+                    // Only current location, use standard zoom
+                    map.controller.animateTo(GeoPoint(location.latitude, location.longitude))
+                    map.controller.setZoom(15.0)
+                } else {
+                    // Has devices, fit all markers including current location
+                    fitMarkersInView()
+                }
                 // Reset flag to allow automatic centering on next location update
                 hasUserLocationCentered = false
             }
@@ -97,17 +246,21 @@ fun MapScreen(
         }
     }
     
+    // Auto-fit view when filters change
+    LaunchedEffect(filteredDetections, showOnlyThreatDevices, showOnlyRecentDevices) {
+        // Only auto-fit when not focusing on a specific device
+        if (focusedDeviceAddress == null && filteredDetections.isNotEmpty()) {
+            kotlinx.coroutines.delay(300) // Small delay to allow UI to update
+            fitMarkersInView()
+        }
+    }
+    
     // Focus on device if specified
     LaunchedEffect(focusedDeviceAddress, filteredDetections) {
         if (focusedDeviceAddress != null && filteredDetections.isNotEmpty() && !hasFocusedDeviceCentered) {
-            val latestDetection = filteredDetections.maxByOrNull { it.timestamp }
-            latestDetection?.let { detection ->
-                mapView?.let { map ->
-                    map.controller.animateTo(GeoPoint(detection.latitude, detection.longitude))
-                    map.controller.setZoom(16.0)
-                    hasFocusedDeviceCentered = true
-                }
-            }
+            kotlinx.coroutines.delay(300) // Small delay to allow markers to update
+            fitMarkersInView() // Fit all detections for focused device
+            hasFocusedDeviceCentered = true
         }
     }
     
@@ -133,52 +286,54 @@ fun MapScreen(
                 }
             }
             
-            // Add device detection markers
+            // Group detections by location for clustering (devices within 50m)
+            val clusteredDetections = mutableMapOf<String, MutableList<BleDetection>>()
             filteredDetections.forEach { detection ->
-                val marker = Marker(map)
-                marker.position = GeoPoint(detection.latitude, detection.longitude)
-                
-                // Find device name from devices list
-                val deviceName = devices.find { it.deviceAddress == detection.deviceAddress }?.deviceName
-                    ?: "Unknown Device"
-                
-                marker.title = deviceName
-                marker.snippet = buildString {
-                    append("Address: ${detection.deviceAddress}\n")
-                    append("RSSI: ${detection.rssi} dBm\n")
-                    append("Detected: ${java.text.SimpleDateFormat("MMM dd, HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(detection.timestamp))}")
+                val locationKey = "${(detection.latitude * 1000).toInt()}_${(detection.longitude * 1000).toInt()}"
+                clusteredDetections.getOrPut(locationKey) { mutableListOf() }.add(detection)
+            }
+            
+            // Add device detection markers with clustering
+            clusteredDetections.entries.forEach { (_, detectionGroup) ->
+                if (detectionGroup.size == 1) {
+                    // Single device - create normal marker
+                    val detection = detectionGroup.first()
+                    val marker = createDeviceMarker(map, detection, devices, focusedDeviceAddress, false)
+                    map.overlays.add(marker)
+                } else {
+                    // Multiple devices in same area - create cluster marker
+                    val centerLat = detectionGroup.map { it.latitude }.average()
+                    val centerLon = detectionGroup.map { it.longitude }.average()
                     
-                    // Add device info if available
-                    devices.find { it.deviceAddress == detection.deviceAddress }?.let { device ->
-                        if (device.label != null) {
-                            append("\nLabel: ${device.label}")
+                    val clusterMarker = Marker(map)
+                    clusterMarker.position = GeoPoint(centerLat, centerLon)
+                    clusterMarker.title = "Device Cluster (${detectionGroup.size})"
+                    clusterMarker.snippet = buildString {
+                        append("${detectionGroup.size} devices in this area:\n")
+                        detectionGroup.take(3).forEach { detection ->
+                            val deviceName = devices.find { it.deviceAddress == detection.deviceAddress }?.deviceName
+                                ?: "Unknown Device"
+                            append("• $deviceName (${detection.rssi} dBm)\n")
                         }
-                        if (device.followingScore > 0.3f) {
-                            append("\nThreat: ${(device.followingScore * 100).toInt()}%")
+                        if (detectionGroup.size > 3) {
+                            append("• ... and ${detectionGroup.size - 3} more")
                         }
                     }
+                    
+                    // Set cluster appearance based on highest threat level in group
+                    val maxThreatScore = detectionGroup.maxOfOrNull { detection ->
+                        devices.find { it.deviceAddress == detection.deviceAddress }?.followingScore ?: 0f
+                    } ?: 0f
+                    
+                    clusterMarker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                    when {
+                        maxThreatScore > 0.7f -> clusterMarker.setAlpha(0.9f) // High threat cluster
+                        maxThreatScore > 0.5f -> clusterMarker.setAlpha(0.8f) // Medium threat cluster
+                        else -> clusterMarker.setAlpha(0.7f) // Normal cluster
+                    }
+                    
+                    map.overlays.add(clusterMarker)
                 }
-                
-                // Set marker appearance based on threat level and focused device
-                marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                
-                // Color marker based on threat level or if it's focused
-                val device = devices.find { it.deviceAddress == detection.deviceAddress }
-                if (focusedDeviceAddress == detection.deviceAddress) {
-                    // Focused device - make it stand out
-                    marker.setAlpha(1.0f)
-                } else if (device != null && device.followingScore > 0.7f) {
-                    // High threat - red marker
-                    marker.setAlpha(0.8f)
-                } else if (device != null && device.followingScore > 0.5f) {
-                    // Medium threat - orange marker
-                    marker.setAlpha(0.7f)
-                } else {
-                    // Normal device
-                    marker.setAlpha(0.6f)
-                }
-                
-                map.overlays.add(marker)
             }
             
             map.invalidate()
@@ -299,7 +454,29 @@ fun MapScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Recenter button
+            // Fit all markers button
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = Color.White.copy(alpha = 0.9f)
+                )
+            ) {
+                IconButton(
+                    onClick = { fitMarkersInView() },
+                    enabled = filteredDetections.isNotEmpty(),
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Home,
+                        contentDescription = "Fit all devices",
+                        tint = if (filteredDetections.isNotEmpty()) 
+                            MaterialTheme.colorScheme.primary 
+                        else 
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                    )
+                }
+            }
+            
+            // Recenter on current location button
             Card(
                 colors = CardDefaults.cardColors(
                     containerColor = Color.White.copy(alpha = 0.9f)
@@ -311,10 +488,10 @@ fun MapScreen(
                     modifier = Modifier.size(48.dp)
                 ) {
                     Icon(
-                        Icons.Default.LocationOn,
-                        contentDescription = "Recenter on location",
+                        Icons.Default.Search,
+                        contentDescription = "Recenter on current location",
                         tint = if (currentLocation != null) 
-                            MaterialTheme.colorScheme.primary 
+                            MaterialTheme.colorScheme.secondary 
                         else 
                             MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                     )
@@ -353,6 +530,46 @@ fun MapScreen(
                         Icons.Default.Close,
                         contentDescription = "Zoom out",
                         tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+        }
+        
+        // Empty state message when no devices match filters
+        if (filteredDetections.isEmpty() && (showOnlyThreatDevices || showOnlyRecentDevices)) {
+            Card(
+                modifier = Modifier
+                    .padding(16.dp)
+                    .align(Alignment.Center),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color.White.copy(alpha = 0.9f)
+                )
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "No devices found",
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = Color.Black
+                    )
+                    Text(
+                        text = if (showOnlyThreatDevices && showOnlyRecentDevices) {
+                            "No recent threat devices detected"
+                        } else if (showOnlyThreatDevices) {
+                            "No threat devices detected"
+                        } else {
+                            "No recent devices detected"
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.Gray
+                    )
+                    Text(
+                        text = "Try adjusting your filters",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray
                     )
                 }
             }
