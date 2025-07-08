@@ -64,16 +64,11 @@ class AnalyticsViewModel @Inject constructor(
             try {
                 _uiState.value = _uiState.value.copy(isLoading = true, error = null)
                 
-                // Trigger immediate data collection
-                triggerAnalyticsCollection()
-                
                 android.util.Log.d("AnalyticsViewModel", "Triggered analytics collection, waiting for data...")
                 
-                // Wait a moment for data to be collected
-                delay(3000)
+                // Get current device data directly from repository instead of waiting for snapshot
+                loadCurrentDeviceData()
                 
-                // Then reload the analytics
-                loadAnalytics()
             } catch (e: Exception) {
                 android.util.Log.e("AnalyticsViewModel", "Failed to refresh analytics", e)
                 _uiState.value = _uiState.value.copy(
@@ -81,6 +76,56 @@ class AnalyticsViewModel @Inject constructor(
                     error = "Failed to refresh: ${e.message}"
                 )
             }
+        }
+    }
+    
+    private suspend fun loadCurrentDeviceData() {
+        try {
+            // Get device data directly using the analytics repository's database access
+            val allDevices = analyticsRepository.getAllDevicesIncludingIgnored().filter { !it.isIgnored }
+            android.util.Log.d("AnalyticsViewModel", "Direct device query found: ${allDevices.size} devices")
+            
+            if (allDevices.isNotEmpty()) {
+                // Create summary from current device data
+                val trackedDevices = allDevices.filter { it.isTracked }
+                val suspiciousDevices = allDevices.filter { it.suspiciousActivityScore > 0.5f }
+                val averageRssi = allDevices.map { it.averageRssi }.average().toFloat()
+                val averageFollowing = allDevices.map { it.followingScore }.average().toFloat()
+                val averageSuspicious = allDevices.map { it.suspiciousActivityScore }.average().toFloat()
+                
+                val currentSummary = com.bleradar.repository.AnalyticsSummary(
+                    totalDevices = allDevices.size,
+                    totalDetections = allDevices.sumOf { it.detectionCount },
+                    averageRssi = averageRssi,
+                    averageFollowingScore = averageFollowing,
+                    averageSuspiciousScore = averageSuspicious,
+                    totalDistanceTraveled = 0f, // Could be calculated if needed
+                    maxAlertsInPeriod = suspiciousDevices.size,
+                    newDevicesDiscovered = allDevices.filter { 
+                        (System.currentTimeMillis() - it.firstSeen) < (24 * 60 * 60 * 1000) 
+                    }.size,
+                    daysAnalyzed = 7
+                )
+                
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    summary = currentSummary,
+                    error = null
+                )
+                
+                android.util.Log.d("AnalyticsViewModel", "Created current summary with ${currentSummary.totalDevices} devices")
+            } else {
+                // Trigger service collection and then try loading again
+                triggerAnalyticsCollection()
+                delay(2000)
+                loadAnalytics()
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("AnalyticsViewModel", "Failed to load current device data", e)
+            _uiState.value = _uiState.value.copy(
+                isLoading = false,
+                error = "Failed to load device data: ${e.message}"
+            )
         }
     }
     
