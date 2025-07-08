@@ -62,12 +62,20 @@ fun AnalyticsScreen(
             )
             
             IconButton(
-                onClick = { viewModel.refreshAnalytics() }
+                onClick = { viewModel.refreshAnalytics() },
+                enabled = !uiState.isLoading
             ) {
-                Icon(
-                    imageVector = Icons.Default.Refresh,
-                    contentDescription = "Refresh"
-                )
+                if (uiState.isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Refresh"
+                    )
+                }
             }
         }
         

@@ -54,7 +54,20 @@ class AnalyticsCollectionService : Service() {
         try {
             createNotificationChannel()
             startForeground(NOTIFICATION_ID, createNotification())
-            startAnalyticsCollection()
+            
+            // Check if this is a manual refresh request
+            if (intent?.action == "COLLECT_NOW") {
+                serviceScope.launch {
+                    try {
+                        collectAnalyticsSnapshot()
+                        android.util.Log.d("AnalyticsService", "Manual analytics collection completed")
+                    } catch (e: Exception) {
+                        android.util.Log.e("AnalyticsService", "Manual collection failed", e)
+                    }
+                }
+            } else {
+                startAnalyticsCollection()
+            }
         } catch (e: Exception) {
             android.util.Log.e("AnalyticsService", "Failed to start analytics collection", e)
             stopSelf()
@@ -107,7 +120,7 @@ class AnalyticsCollectionService : Service() {
         }
     }
     
-    private suspend fun collectAnalyticsSnapshot() {
+    suspend fun collectAnalyticsSnapshot() {
         try {
             val currentTime = System.currentTimeMillis()
             val dayAgo = currentTime - TimeUnit.DAYS.toMillis(1)

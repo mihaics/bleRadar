@@ -52,7 +52,14 @@ fun BleRadarNavigation() {
                 items.forEach { screen ->
                     NavigationBarItem(
                         icon = { Icon(screen.icon, contentDescription = screen.title) },
-                        label = { Text(screen.title) },
+                        label = { 
+                            Text(
+                                text = screen.title,
+                                style = MaterialTheme.typography.labelSmall,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                            )
+                        },
                         selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
                         onClick = {
                             navController.navigate(screen.route) {
@@ -117,7 +124,7 @@ fun BleRadarNavigation() {
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
     object DeviceList : Screen("device_list", "Devices", Icons.Default.List)
     object Map : Screen("map", "Map", Icons.Default.LocationOn)
-    object Analytics : Screen("analytics", "Analytics", Icons.Default.Info)
+    object Analytics : Screen("analytics", "Stats", Icons.Default.Info)
     object Alerts : Screen("alerts", "Alerts", Icons.Default.Warning)
     object Settings : Screen("settings", "Settings", Icons.Default.Settings)
 }

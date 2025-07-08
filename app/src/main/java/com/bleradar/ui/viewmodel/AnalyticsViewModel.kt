@@ -1,6 +1,9 @@
 package com.bleradar.ui.viewmodel
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import android.content.Context
+import android.content.Intent
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.bleradar.data.database.AnalyticsSnapshot
 import com.bleradar.data.database.DeviceAnalytics
@@ -13,18 +16,21 @@ import com.bleradar.data.database.AlertsTrendResult
 import com.bleradar.repository.AnalyticsRepository
 import com.bleradar.repository.AnalyticsSummary
 import com.bleradar.repository.WeeklyTrendComparison
+import com.bleradar.service.AnalyticsCollectionService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import javax.inject.Inject
 
 @HiltViewModel
 class AnalyticsViewModel @Inject constructor(
-    private val analyticsRepository: AnalyticsRepository
-) : ViewModel() {
+    private val analyticsRepository: AnalyticsRepository,
+    private val application: Application
+) : AndroidViewModel(application) {
     
     private val _uiState = MutableStateFlow(AnalyticsUiState())
     val uiState: StateFlow<AnalyticsUiState> = _uiState.asStateFlow()
@@ -54,7 +60,38 @@ class AnalyticsViewModel @Inject constructor(
     }
     
     fun refreshAnalytics() {
-        loadAnalytics()
+        viewModelScope.launch {
+            try {
+                _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+                
+                // Trigger immediate data collection
+                triggerAnalyticsCollection()
+                
+                android.util.Log.d("AnalyticsViewModel", "Triggered analytics collection, waiting for data...")
+                
+                // Wait a moment for data to be collected
+                delay(3000)
+                
+                // Then reload the analytics
+                loadAnalytics()
+            } catch (e: Exception) {
+                android.util.Log.e("AnalyticsViewModel", "Failed to refresh analytics", e)
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = "Failed to refresh: ${e.message}"
+                )
+            }
+        }
+    }
+    
+    private fun triggerAnalyticsCollection() {
+        try {
+            val intent = Intent(application, AnalyticsCollectionService::class.java)
+            intent.action = "COLLECT_NOW"
+            application.startForegroundService(intent)
+        } catch (e: Exception) {
+            android.util.Log.e("AnalyticsViewModel", "Failed to trigger analytics collection", e)
+        }
     }
     
     private fun loadAnalytics() {
