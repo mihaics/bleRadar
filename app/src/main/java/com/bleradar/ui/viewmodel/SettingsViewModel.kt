@@ -54,15 +54,20 @@ class SettingsViewModel @Inject constructor(
         if (settingsManager.autoCleanupEnabled) {
             workManagerScheduler.scheduleDataCleanup()
         }
+        
+        // Schedule periodic scans if service is enabled
+        if (settingsManager.isServiceEnabled) {
+            workManagerScheduler.schedulePeriodicScans()
+        }
     }
     
     fun setScanInterval(minutes: Int) {
         _scanInterval.value = minutes
         settingsManager.scanIntervalMinutes = minutes
         
-        // If service is running, restart it with new interval
-        if (_isServiceRunning.value) {
-            restartServiceWithNewSettings()
+        // Update WorkManager schedule with new interval
+        if (settingsManager.isServiceEnabled) {
+            workManagerScheduler.schedulePeriodicScans()
         }
     }
     
@@ -71,6 +76,9 @@ class SettingsViewModel @Inject constructor(
         context.startForegroundService(intent)
         settingsManager.isServiceEnabled = true
         _isServiceRunning.value = true
+        
+        // Schedule periodic scans using WorkManager
+        workManagerScheduler.schedulePeriodicScans()
     }
     
     fun stopService() {
@@ -78,6 +86,9 @@ class SettingsViewModel @Inject constructor(
         context.stopService(intent)
         settingsManager.isServiceEnabled = false
         _isServiceRunning.value = false
+        
+        // Cancel periodic scans
+        workManagerScheduler.cancelPeriodicScans()
     }
     
     private fun restartServiceWithNewSettings() {

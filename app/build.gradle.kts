@@ -82,6 +82,8 @@ dependencies {
     
     // Work manager for background tasks
     implementation("androidx.work:work-runtime-ktx:2.8.1")
+    implementation("androidx.hilt:hilt-work:1.0.0")
+    ksp("androidx.hilt:hilt-compiler:1.0.0")
     
     // Lifecycle
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2")

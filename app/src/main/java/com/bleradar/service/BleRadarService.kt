@@ -15,6 +15,7 @@ import android.location.Location
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
+import android.os.SystemClock
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import com.bleradar.R
@@ -94,7 +95,22 @@ class BleRadarService : Service() {
             }
             
             startForeground(NOTIFICATION_ID, createNotification())
-            startPeriodicScanning()
+            
+            // Handle different actions
+            val action = intent?.getStringExtra("action")
+            when (action) {
+                "scan_once" -> {
+                    // Perform a single scan cycle triggered by WorkManager
+                    serviceScope.launch {
+                        performScan()
+                        // Keep service running but don't start continuous scanning
+                    }
+                }
+                else -> {
+                    // Default: start continuous scanning for immediate use
+                    startPeriodicScanning()
+                }
+            }
         } catch (e: SecurityException) {
             android.util.Log.e("BleRadarService", "SecurityException starting foreground service: ${e.message}")
             try {
@@ -151,6 +167,10 @@ class BleRadarService : Service() {
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
                 description = "Background BLE scanning service"
+                setShowBadge(false)
+                enableLights(false)
+                enableVibration(false)
+                setSound(null, null)
             }
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(channel)
@@ -160,9 +180,12 @@ class BleRadarService : Service() {
     private fun createNotification(): Notification {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("BLE Radar Active")
-            .setContentText("Scanning for BLE devices...")
+            .setContentText("Scanning for BLE devices every ${settingsManager.scanIntervalMinutes} minutes")
             .setSmallIcon(R.drawable.ic_radar)
             .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOngoing(true) // Make notification persistent
+            .setAutoCancel(false) // Prevent user from dismissing
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .build()
     }
 
@@ -206,6 +229,16 @@ class BleRadarService : Service() {
                 val scanIntervalMs = settingsManager.getScanIntervalMillis()
                 delay(scanIntervalMs)
             }
+        }
+    }
+    
+    private fun updateNotification() {
+        try {
+            val notification = createNotification()
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.notify(NOTIFICATION_ID, notification)
+        } catch (e: Exception) {
+            android.util.Log.e("BleRadarService", "Error updating notification: ${e.message}")
         }
     }
 

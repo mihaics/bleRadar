@@ -17,6 +17,7 @@ class WorkManagerScheduler @Inject constructor(
     companion object {
         private const val TAG = "WorkManagerScheduler"
         private const val DATA_CLEANUP_WORK_NAME = "data_cleanup_periodic"
+        private const val SCAN_WORK_NAME = "ble_scan_periodic"
     }
 
     private val workManager = WorkManager.getInstance(context)
@@ -85,4 +86,49 @@ class WorkManagerScheduler @Inject constructor(
         // For now, return a default value
         return System.currentTimeMillis() - (24 * 60 * 60 * 1000) // 24 hours ago
     }
+    
+    fun schedulePeriodicScans() {
+        if (!settingsManager.isServiceEnabled) {
+            Log.d(TAG, "Service disabled, cancelling periodic scans")
+            cancelPeriodicScans()
+            return
+        }
+
+        val scanIntervalMinutes = settingsManager.scanIntervalMinutes.toLong()
+        Log.d(TAG, "Scheduling periodic scans every $scanIntervalMinutes minutes")
+
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.NOT_REQUIRED)
+            .setRequiresBatteryNotLow(false) // Allow scanning even on low battery
+            .setRequiresCharging(false)
+            .setRequiresDeviceIdle(false)
+            .build()
+
+        val scanRequest = PeriodicWorkRequestBuilder<ScanWorker>(
+            scanIntervalMinutes, TimeUnit.MINUTES,
+            5, TimeUnit.MINUTES // 5-minute flex period
+        )
+            .setConstraints(constraints)
+            .setBackoffCriteria(
+                BackoffPolicy.EXPONENTIAL,
+                1, TimeUnit.MINUTES
+            )
+            .addTag("ble_scan")
+            .build()
+
+        workManager.enqueueUniquePeriodicWork(
+            SCAN_WORK_NAME,
+            ExistingPeriodicWorkPolicy.REPLACE,
+            scanRequest
+        )
+
+        Log.d(TAG, "Periodic scans scheduled")
+    }
+    
+    fun cancelPeriodicScans() {
+        Log.d(TAG, "Cancelling periodic scans")
+        workManager.cancelUniqueWork(SCAN_WORK_NAME)
+    }
+    
+    fun getScanWorkInfo() = workManager.getWorkInfosForUniqueWorkLiveData(SCAN_WORK_NAME)
 }
