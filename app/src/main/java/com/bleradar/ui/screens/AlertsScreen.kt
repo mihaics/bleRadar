@@ -27,120 +27,104 @@ fun AlertsScreen(
     val trackedDevices by viewModel.trackedDevices.collectAsStateWithLifecycle(initialValue = emptyList())
     val knownTrackers by viewModel.knownTrackers.collectAsStateWithLifecycle(initialValue = emptyList())
     
-    Column(
+    LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         // Header
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = if (suspiciousDevices.isNotEmpty()) Color.Red.copy(alpha = 0.1f) else Color.Green.copy(alpha = 0.1f)
-            )
-        ) {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (suspiciousDevices.isNotEmpty()) Color.Red.copy(alpha = 0.1f) else Color.Green.copy(alpha = 0.1f)
+                )
             ) {
-                Column {
-                    Text(
-                        text = "Security Status",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = if (suspiciousDevices.isNotEmpty()) 
-                            "${suspiciousDevices.size} suspicious devices detected" 
-                        else "No threats detected",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
-                
-                if (suspiciousDevices.isNotEmpty()) {
-                    Icon(
-                        Icons.Default.Warning,
-                        contentDescription = "Warning",
-                        tint = Color.Red,
-                        modifier = Modifier.size(32.dp)
-                    )
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Security Status",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = if (suspiciousDevices.isNotEmpty()) 
+                                "${suspiciousDevices.size} suspicious devices detected" 
+                            else "No threats detected",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                    
+                    if (suspiciousDevices.isNotEmpty()) {
+                        Icon(
+                            Icons.Default.Warning,
+                            contentDescription = "Warning",
+                            tint = Color.Red,
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
                 }
             }
         }
         
-        Spacer(modifier = Modifier.height(16.dp))
-        
         // Suspicious devices section
         if (suspiciousDevices.isNotEmpty()) {
-            Text(
-                text = "Suspicious Devices",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = Color.Red
-            )
+            item {
+                Text(
+                    text = "Suspicious Devices",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Red,
+                    modifier = Modifier.padding(top = 16.dp)
+                )
+            }
             
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(suspiciousDevices) { device ->
-                    SuspiciousDeviceCard(device = device, viewModel = viewModel)
-                }
-                
-                item {
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
+            items(suspiciousDevices) { device ->
+                SuspiciousDeviceCard(device = device, viewModel = viewModel)
             }
         }
         
         // Known trackers section
         if (knownTrackers.isNotEmpty()) {
-            Text(
-                text = "Known Trackers Detected",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
+            item {
+                Text(
+                    text = "Known Trackers Detected",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(top = 16.dp)
+                )
+            }
             
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(knownTrackers) { device ->
-                    KnownTrackerCard(device = device, viewModel = viewModel)
-                }
-                
-                item {
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
+            items(knownTrackers) { device ->
+                KnownTrackerCard(device = device, viewModel = viewModel)
             }
         }
         
         // Tracked devices section
         if (trackedDevices.isNotEmpty()) {
-            Text(
-                text = "Tracked Devices",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
+            item {
+                Text(
+                    text = "Tracked Devices",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = 16.dp)
+                )
+            }
             
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(trackedDevices) { device ->
-                    TrackedDeviceCard(device = device, viewModel = viewModel)
-                }
+            items(trackedDevices) { device ->
+                TrackedDeviceCard(device = device, viewModel = viewModel)
             }
         }
         
-        if (suspiciousDevices.isEmpty() && trackedDevices.isEmpty() && knownTrackers.isEmpty()) {
+        // Empty state\n        if (suspiciousDevices.isEmpty() && trackedDevices.isEmpty() && knownTrackers.isEmpty()) {\n            item {
             Box(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxWidth().padding(32.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -148,6 +132,7 @@ fun AlertsScreen(
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                 )
+            }
             }
         }
     }
@@ -157,6 +142,11 @@ fun AlertsScreen(
 @Composable
 fun SuspiciousDeviceCard(device: BleDevice, viewModel: AlertsViewModel) {
     val dateFormat = SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault())
+    
+    // State for button feedback
+    var markSafeClicked by remember { mutableStateOf(false) }
+    var trackClicked by remember { mutableStateOf(false) }
+    var ignoreClicked by remember { mutableStateOf(false) }
     
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -244,33 +234,42 @@ fun SuspiciousDeviceCard(device: BleDevice, viewModel: AlertsViewModel) {
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 OutlinedButton(
-                    onClick = { viewModel.markDeviceAsLegitimate(device.deviceAddress) },
+                    onClick = { 
+                        markSafeClicked = true
+                        viewModel.markDeviceAsLegitimate(device.deviceAddress)
+                    },
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.outlinedButtonColors(
                         contentColor = MaterialTheme.colorScheme.primary
                     )
                 ) {
-                    Text("Mark Safe", style = MaterialTheme.typography.labelMedium)
+                    Text(if (markSafeClicked) "✓ Marked Safe" else "Mark Safe", style = MaterialTheme.typography.labelMedium)
                 }
                 
                 OutlinedButton(
-                    onClick = { viewModel.trackDevice(device.deviceAddress) },
+                    onClick = { 
+                        trackClicked = true
+                        viewModel.trackDevice(device.deviceAddress)
+                    },
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.outlinedButtonColors(
                         contentColor = Color(0xFFFF9800)
                     )
                 ) {
-                    Text("Track", style = MaterialTheme.typography.labelMedium)
+                    Text(if (trackClicked) "✓ Tracking" else "Track", style = MaterialTheme.typography.labelMedium)
                 }
                 
                 Button(
-                    onClick = { viewModel.ignoreDevice(device.deviceAddress) },
+                    onClick = { 
+                        ignoreClicked = true
+                        viewModel.ignoreDevice(device.deviceAddress)
+                    },
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color.Red.copy(alpha = 0.8f)
                     )
                 ) {
-                    Text("Ignore", style = MaterialTheme.typography.labelMedium)
+                    Text(if (ignoreClicked) "✓ Ignored" else "Ignore", style = MaterialTheme.typography.labelMedium)
                 }
             }
         }
