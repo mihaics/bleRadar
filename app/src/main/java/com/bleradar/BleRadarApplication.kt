@@ -4,7 +4,6 @@ import android.app.Application
 import android.content.Intent
 import androidx.work.WorkManager
 import com.bleradar.preferences.SettingsManager
-import com.bleradar.service.AnalyticsCollectionService
 import com.bleradar.service.BleRadarService
 import com.bleradar.worker.WorkManagerScheduler
 import dagger.hilt.android.HiltAndroidApp

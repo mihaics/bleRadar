@@ -12,7 +12,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import com.bleradar.preferences.SettingsManager
-import com.bleradar.service.AnalyticsCollectionService
 import com.bleradar.service.BleRadarService
 import com.bleradar.ui.theme.BleRadarTheme
 import com.bleradar.ui.navigation.BleRadarNavigation
@@ -77,7 +76,8 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     
-                    BleRadarNavigation()
+                    val deviceAddress = intent.getStringExtra("device_address")
+                    BleRadarNavigation(initialDeviceAddress = deviceAddress)
                 }
             }
         }
@@ -92,10 +92,6 @@ class MainActivity : ComponentActivity() {
                 android.util.Log.d("MainActivity", "Started BleRadarService")
             }
             
-            // Start analytics collection service (foreground service)
-            val analyticsIntent = Intent(this, AnalyticsCollectionService::class.java)
-            startForegroundService(analyticsIntent)
-            android.util.Log.d("MainActivity", "Started AnalyticsCollectionService")
         } catch (e: Exception) {
             android.util.Log.e("MainActivity", "Failed to start services", e)
         }

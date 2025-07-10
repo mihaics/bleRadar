@@ -25,6 +25,7 @@ fun AlertsScreen(
 ) {
     val suspiciousDevices by viewModel.suspiciousDevices.collectAsStateWithLifecycle(initialValue = emptyList())
     val trackedDevices by viewModel.trackedDevices.collectAsStateWithLifecycle(initialValue = emptyList())
+    val knownTrackers by viewModel.knownTrackers.collectAsStateWithLifecycle(initialValue = emptyList())
     
     Column(
         modifier = Modifier
@@ -94,6 +95,30 @@ fun AlertsScreen(
             }
         }
         
+        // Known trackers section
+        if (knownTrackers.isNotEmpty()) {
+            Text(
+                text = "Known Trackers Detected",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(knownTrackers) { device ->
+                    KnownTrackerCard(device = device)
+                }
+                
+                item {
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+            }
+        }
+        
         // Tracked devices section
         if (trackedDevices.isNotEmpty()) {
             Text(
@@ -113,7 +138,7 @@ fun AlertsScreen(
             }
         }
         
-        if (suspiciousDevices.isEmpty() && trackedDevices.isEmpty()) {
+        if (suspiciousDevices.isEmpty() && trackedDevices.isEmpty() && knownTrackers.isEmpty()) {
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
@@ -210,6 +235,78 @@ fun SuspiciousDeviceCard(device: BleDevice) {
                 style = MaterialTheme.typography.bodySmall,
                 color = Color.Red
             )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun KnownTrackerCard(device: BleDevice) {
+    val dateFormat = SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault())
+    
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = device.deviceName ?: "Unknown Tracker",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = device.deviceAddress,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    )
+                    Text(
+                        text = "🏷️ Known Tracker Type",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+                
+                Text(
+                    text = "${device.rssi} dBm",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            Text(
+                text = "Last seen: ${dateFormat.format(Date(device.lastSeen))}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+            )
+            
+            if (device.followingScore > 0.3f) {
+                Text(
+                    text = "⚠️ Tracking score: ${(device.followingScore * 100).toInt()}%",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFFFF9800),
+                    fontWeight = FontWeight.Medium
+                )
+            } else {
+                Text(
+                    text = "ℹ️ This appears to be a legitimate tracker (low tracking score)",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
         }
     }
 }

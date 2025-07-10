@@ -58,6 +58,8 @@ class NotificationManager @Inject constructor(
     fun showFollowingAlert(device: BleDevice) {
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            putExtra("device_address", device.deviceAddress)
+            putExtra("open_device_details", true)
         }
         
         val pendingIntent = PendingIntent.getActivity(
@@ -85,6 +87,8 @@ class NotificationManager @Inject constructor(
     fun showTrackedDeviceNotification(device: BleDevice) {
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            putExtra("device_address", device.deviceAddress)
+            putExtra("open_device_details", true)
         }
         
         val pendingIntent = PendingIntent.getActivity(

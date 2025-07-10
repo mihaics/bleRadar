@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -18,7 +19,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.bleradar.ui.screens.AnalyticsScreen
+import com.bleradar.ui.screens.SimpleAnalyticsScreen
 import com.bleradar.ui.screens.DeviceListScreen
 import com.bleradar.ui.screens.DeviceDetailScreen
 import com.bleradar.ui.screens.MapScreen
@@ -27,8 +28,17 @@ import com.bleradar.ui.screens.AlertsScreen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BleRadarNavigation() {
+fun BleRadarNavigation(
+    initialDeviceAddress: String? = null
+) {
     val navController = rememberNavController()
+    
+    // Handle notification navigation
+    LaunchedEffect(initialDeviceAddress) {
+        if (initialDeviceAddress != null) {
+            navController.navigate("device_detail/$initialDeviceAddress")
+        }
+    }
     
     val items = listOf(
         Screen.DeviceList,
@@ -109,7 +119,7 @@ fun BleRadarNavigation() {
                 )
             }
             composable(Screen.Analytics.route) {
-                AnalyticsScreen()
+                SimpleAnalyticsScreen()
             }
             composable(Screen.Alerts.route) {
                 AlertsScreen()

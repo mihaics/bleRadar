@@ -3,7 +3,8 @@ package com.bleradar.di
 import android.content.Context
 import com.bleradar.data.database.BleRadarDatabase
 import com.bleradar.preferences.SettingsManager
-import com.bleradar.repository.AnalyticsRepository
+import com.bleradar.repository.SimpleAnalyticsRepository
+import com.bleradar.analysis.ImprovedTrackerDetector
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -29,7 +30,13 @@ object AppModule {
     
     @Provides
     @Singleton
-    fun provideAnalyticsRepository(database: BleRadarDatabase): AnalyticsRepository {
-        return AnalyticsRepository(database)
+    fun provideSimpleAnalyticsRepository(database: BleRadarDatabase): SimpleAnalyticsRepository {
+        return SimpleAnalyticsRepository(database)
+    }
+    
+    @Provides
+    @Singleton
+    fun provideImprovedTrackerDetector(deviceRepository: com.bleradar.repository.DeviceRepository): ImprovedTrackerDetector {
+        return ImprovedTrackerDetector(deviceRepository)
     }
 }

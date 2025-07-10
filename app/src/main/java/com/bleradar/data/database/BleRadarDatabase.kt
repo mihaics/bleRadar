@@ -8,11 +8,10 @@ import android.content.Context
 @Database(
     entities = [
         BleDevice::class, BleDetection::class, LocationRecord::class, DetectionPattern::class, 
-        AnalyticsSnapshot::class, DeviceAnalytics::class, TrendData::class,
         OptimizedDevice::class, LocationCluster::class, DeviceClusterDetection::class,
         TrackingEvidence::class, DeviceSummary::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class BleRadarDatabase : RoomDatabase() {
@@ -20,9 +19,6 @@ abstract class BleRadarDatabase : RoomDatabase() {
     abstract fun bleDetectionDao(): BleDetectionDao
     abstract fun locationDao(): LocationDao
     abstract fun detectionPatternDao(): DetectionPatternDao
-    abstract fun analyticsSnapshotDao(): AnalyticsSnapshotDao
-    abstract fun deviceAnalyticsDao(): DeviceAnalyticsDao
-    abstract fun trendDataDao(): TrendDataDao
     
     // New optimized DAOs
     abstract fun optimizedDeviceDao(): OptimizedDeviceDao
