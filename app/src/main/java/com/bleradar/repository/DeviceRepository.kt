@@ -33,6 +33,22 @@ class DeviceRepository @Inject constructor(
     suspend fun setDeviceTracked(address: String, tracked: Boolean) = 
         database.bleDeviceDao().setDeviceTracked(address, tracked)
     
+    // Additional methods for AlertsViewModel
+    suspend fun updateDeviceIgnoreStatus(address: String, ignored: Boolean) {
+        if (ignored) {
+            database.bleDeviceDao().ignoreDevice(address)
+        } else {
+            // We need to update the device to unignore it
+            val device = database.bleDeviceDao().getDevice(address)
+            device?.let {
+                database.bleDeviceDao().updateDevice(it.copy(isIgnored = false))
+            }
+        }
+    }
+    
+    suspend fun updateDeviceTrackingStatus(address: String, tracked: Boolean) = 
+        database.bleDeviceDao().setDeviceTracked(address, tracked)
+    
     suspend fun updateFollowingScore(address: String, score: Float) = 
         database.bleDeviceDao().updateFollowingScore(address, score)
     
