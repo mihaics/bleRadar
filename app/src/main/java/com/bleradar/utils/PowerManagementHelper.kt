@@ -39,7 +39,7 @@ class PowerManagementHelper(private val context: Context) {
             // Use activity result launcher for better handling
             val launcher = activity.registerForActivityResult(
                 ActivityResultContracts.StartActivityForResult()
-            ) { result ->
+            ) { _ ->
                 // Handle result if needed
             }
             

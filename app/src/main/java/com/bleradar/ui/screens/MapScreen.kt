@@ -59,7 +59,7 @@ fun MapScreen(
         detection: BleDetection,
         devices: List<BleDevice>,
         focusedDeviceAddress: String?,
-        isInCluster: Boolean
+        @Suppress("UNUSED_PARAMETER") isInCluster: Boolean
     ): Marker {
         val marker = Marker(map)
         marker.position = GeoPoint(detection.latitude, detection.longitude)

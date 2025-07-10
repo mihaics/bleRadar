@@ -29,12 +29,14 @@ fun SettingsScreen(
     val scanInterval by viewModel.scanInterval.collectAsStateWithLifecycle()
     val isServiceRunning by viewModel.isServiceRunning.collectAsStateWithLifecycle()
     val databaseSize by viewModel.databaseSize.collectAsStateWithLifecycle()
+    @Suppress("UNUSED_VARIABLE")
     val dataRetentionDays by viewModel.dataRetentionDays.collectAsStateWithLifecycle()
     val autoCleanupEnabled by viewModel.autoCleanupEnabled.collectAsStateWithLifecycle()
     val detectionRetentionDays by viewModel.detectionRetentionDays.collectAsStateWithLifecycle()
     val locationRetentionDays by viewModel.locationRetentionDays.collectAsStateWithLifecycle()
     
     var showClearDialog by remember { mutableStateOf(false) }
+    @Suppress("UNUSED_VARIABLE")
     var showDataRetentionDialog by remember { mutableStateOf(false) }
     var showDetectionRetentionDialog by remember { mutableStateOf(false) }
     var showLocationRetentionDialog by remember { mutableStateOf(false) }

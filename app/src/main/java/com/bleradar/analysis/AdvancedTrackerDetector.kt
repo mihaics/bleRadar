@@ -518,7 +518,7 @@ class AdvancedTrackerDetector @Inject constructor(
     
     private fun determineRecommendedAction(
         riskLevel: RiskLevel,
-        analyses: List<PatternAnalysis>
+        @Suppress("UNUSED_PARAMETER") analyses: List<PatternAnalysis>
     ): RecommendedAction {
         return when (riskLevel) {
             RiskLevel.CRITICAL -> RecommendedAction.IMMEDIATE_ALERT

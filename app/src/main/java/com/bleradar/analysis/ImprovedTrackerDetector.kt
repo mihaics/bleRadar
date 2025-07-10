@@ -159,8 +159,8 @@ class ImprovedTrackerDetector @Inject constructor(
     
     private fun analyzeStationaryScenario(
         device: BleDevice,
-        detections: List<BleDetection>,
-        userLocations: List<LocationRecord>,
+        @Suppress("UNUSED_PARAMETER") detections: List<BleDetection>,
+        @Suppress("UNUSED_PARAMETER") userLocations: List<LocationRecord>,
         userMovement: UserMovementAnalysis
     ): Float {
         // If user is stationary, check if this could be a legitimate tracker at home/work
@@ -179,10 +179,10 @@ class ImprovedTrackerDetector @Inject constructor(
     }
     
     private fun analyzeMobileScenario(
-        device: BleDevice,
+        @Suppress("UNUSED_PARAMETER") device: BleDevice,
         detections: List<BleDetection>,
         userLocations: List<LocationRecord>,
-        userMovement: UserMovementAnalysis
+        @Suppress("UNUSED_PARAMETER") userMovement: UserMovementAnalysis
     ): Float {
         if (userLocations.isEmpty() || detections.isEmpty()) return 0f
         

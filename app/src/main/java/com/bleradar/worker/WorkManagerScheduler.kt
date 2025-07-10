@@ -52,7 +52,7 @@ class WorkManagerScheduler @Inject constructor(
 
         workManager.enqueueUniquePeriodicWork(
             DATA_CLEANUP_WORK_NAME,
-            ExistingPeriodicWorkPolicy.REPLACE,
+            ExistingPeriodicWorkPolicy.UPDATE,
             cleanupRequest
         )
 
@@ -118,7 +118,7 @@ class WorkManagerScheduler @Inject constructor(
 
         workManager.enqueueUniquePeriodicWork(
             SCAN_WORK_NAME,
-            ExistingPeriodicWorkPolicy.REPLACE,
+            ExistingPeriodicWorkPolicy.UPDATE,
             scanRequest
         )
 

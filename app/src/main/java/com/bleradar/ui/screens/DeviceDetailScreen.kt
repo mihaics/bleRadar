@@ -403,14 +403,14 @@ fun DetectionStatsCard(
                 value = "${String.format("%.1f", device.rssiVariation)} dBm"
             )
             
-            device.lastMovementTime?.let { movementTime ->
+            device.lastMovementTime.let { movementTime ->
                 InfoRow(
                     label = "Last Movement",
                     value = SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault()).format(Date(movementTime))
                 )
             }
             
-            device.lastAlertTime?.let { alertTime ->
+            device.lastAlertTime.let { alertTime ->
                 InfoRow(
                     label = "Last Alert",
                     value = SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault()).format(Date(alertTime))

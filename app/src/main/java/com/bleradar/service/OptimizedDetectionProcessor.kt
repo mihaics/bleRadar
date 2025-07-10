@@ -263,7 +263,7 @@ class OptimizedDetectionProcessor @Inject constructor(
         // TODO: Implement notification system
     }
     
-    private fun calculateRssiVariance(oldAvg: Float, newAvg: Float, newRssi: Int): Float {
+    private fun calculateRssiVariance(@Suppress("UNUSED_PARAMETER") oldAvg: Float, newAvg: Float, newRssi: Int): Float {
         // Simple variance calculation
         val diff = abs(newRssi - newAvg)
         return sqrt(diff.pow(2))
