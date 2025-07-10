@@ -73,7 +73,7 @@ class ImprovedTrackerDetector @Inject constructor(
             finalConfidence >= FOLLOWING_THRESHOLD -> RiskLevel.HIGH
             finalConfidence >= SUSPICIOUS_THRESHOLD -> RiskLevel.MEDIUM
             finalConfidence >= 0.3f -> RiskLevel.LOW
-            else -> RiskLevel.SAFE
+            else -> RiskLevel.LOW
         }
         
         return ImprovedTrackerResult(
@@ -315,7 +315,7 @@ data class ImprovedTrackerResult(
     companion object {
         fun notFound() = ImprovedTrackerResult(
             deviceAddress = "",
-            riskLevel = RiskLevel.SAFE,
+            riskLevel = RiskLevel.LOW,
             confidence = 0f,
             isKnownTracker = false,
             userMovementPattern = UserMovementAnalysis(),
@@ -326,7 +326,7 @@ data class ImprovedTrackerResult(
         
         fun insufficientData() = ImprovedTrackerResult(
             deviceAddress = "",
-            riskLevel = RiskLevel.SAFE,
+            riskLevel = RiskLevel.LOW,
             confidence = 0f,
             isKnownTracker = false,
             userMovementPattern = UserMovementAnalysis(),

@@ -2,6 +2,7 @@ package com.bleradar.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import com.bleradar.repository.DeviceRepository
+import com.bleradar.data.database.BleDevice
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -17,13 +18,13 @@ class AlertsViewModel @Inject constructor(
     val trackedDevices = deviceRepository.getTrackedDevices()
     
     // Also show known tracker types even if not flagged as suspicious
-    val knownTrackers: Flow<List<com.bleradar.data.database.BleDevice>> = deviceRepository.getAllDevices().map { devices ->
+    val knownTrackers: Flow<List<BleDevice>> = deviceRepository.getAllDevices().map { devices ->
         devices.filter { device ->
             isKnownTrackerType(device) && !device.isIgnored
         }
     }
     
-    private fun isKnownTrackerType(device: com.bleradar.data.database.BleDevice): Boolean {
+    private fun isKnownTrackerType(device: BleDevice): Boolean {
         val knownTrackerServices = setOf(
             "0000FE9F-0000-1000-8000-00805F9B34FB", // Apple AirTag
             "0000FD5A-0000-1000-8000-00805F9B34FB", // Samsung SmartTag
