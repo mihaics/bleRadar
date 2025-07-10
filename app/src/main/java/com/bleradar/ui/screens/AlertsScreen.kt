@@ -86,7 +86,7 @@ fun AlertsScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(suspiciousDevices) { device ->
-                    SuspiciousDeviceCard(device = device)
+                    SuspiciousDeviceCard(device = device, viewModel = viewModel)
                 }
                 
                 item {
@@ -110,7 +110,7 @@ fun AlertsScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(knownTrackers) { device ->
-                    KnownTrackerCard(device = device)
+                    KnownTrackerCard(device = device, viewModel = viewModel)
                 }
                 
                 item {
@@ -133,7 +133,7 @@ fun AlertsScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(trackedDevices) { device ->
-                    TrackedDeviceCard(device = device)
+                    TrackedDeviceCard(device = device, viewModel = viewModel)
                 }
             }
         }
@@ -155,7 +155,7 @@ fun AlertsScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SuspiciousDeviceCard(device: BleDevice) {
+fun SuspiciousDeviceCard(device: BleDevice, viewModel: AlertsViewModel) {
     val dateFormat = SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault())
     
     Card(
@@ -235,13 +235,51 @@ fun SuspiciousDeviceCard(device: BleDevice) {
                 style = MaterialTheme.typography.bodySmall,
                 color = Color.Red
             )
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Action buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = { viewModel.markDeviceAsLegitimate(device.deviceAddress) },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Text("Mark Safe", style = MaterialTheme.typography.labelMedium)
+                }
+                
+                OutlinedButton(
+                    onClick = { viewModel.trackDevice(device.deviceAddress) },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = Color(0xFFFF9800)
+                    )
+                ) {
+                    Text("Track", style = MaterialTheme.typography.labelMedium)
+                }
+                
+                Button(
+                    onClick = { viewModel.ignoreDevice(device.deviceAddress) },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.Red.copy(alpha = 0.8f)
+                    )
+                ) {
+                    Text("Ignore", style = MaterialTheme.typography.labelMedium)
+                }
+            }
         }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun KnownTrackerCard(device: BleDevice) {
+fun KnownTrackerCard(device: BleDevice, viewModel: AlertsViewModel) {
     val dateFormat = SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault())
     
     Card(
@@ -307,13 +345,53 @@ fun KnownTrackerCard(device: BleDevice) {
                     color = MaterialTheme.colorScheme.primary
                 )
             }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Action buttons for known trackers
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (device.isTracked) {
+                    Button(
+                        onClick = { viewModel.untrackDevice(device.deviceAddress) },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary
+                        )
+                    ) {
+                        Text("Stop Tracking", style = MaterialTheme.typography.labelMedium)
+                    }
+                } else {
+                    OutlinedButton(
+                        onClick = { viewModel.trackDevice(device.deviceAddress) },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.primary
+                        )
+                    ) {
+                        Text("Track Device", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+                
+                OutlinedButton(
+                    onClick = { viewModel.ignoreDevice(device.deviceAddress) },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = Color.Gray
+                    )
+                ) {
+                    Text("Ignore", style = MaterialTheme.typography.labelMedium)
+                }
+            }
         }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TrackedDeviceCard(device: BleDevice) {
+fun TrackedDeviceCard(device: BleDevice, viewModel: AlertsViewModel) {
     val dateFormat = SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault())
     
     Card(
@@ -371,6 +449,34 @@ fun TrackedDeviceCard(device: BleDevice) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.primary
             )
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Action buttons for tracked devices
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = { viewModel.untrackDevice(device.deviceAddress) },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.Red.copy(alpha = 0.8f)
+                    )
+                ) {
+                    Text("Stop Tracking", style = MaterialTheme.typography.labelMedium)
+                }
+                
+                OutlinedButton(
+                    onClick = { viewModel.ignoreDevice(device.deviceAddress) },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = Color.Gray
+                    )
+                ) {
+                    Text("Ignore", style = MaterialTheme.typography.labelMedium)
+                }
+            }
         }
     }
 }
