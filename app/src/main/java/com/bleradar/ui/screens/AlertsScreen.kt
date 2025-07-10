@@ -122,7 +122,9 @@ fun AlertsScreen(
             }
         }
         
-        // Empty state\n        if (suspiciousDevices.isEmpty() && trackedDevices.isEmpty() && knownTrackers.isEmpty()) {\n            item {
+        // Empty state
+        if (suspiciousDevices.isEmpty() && trackedDevices.isEmpty() && knownTrackers.isEmpty()) {
+            item {
             Box(
                 modifier = Modifier.fillMaxWidth().padding(32.dp),
                 contentAlignment = Alignment.Center
