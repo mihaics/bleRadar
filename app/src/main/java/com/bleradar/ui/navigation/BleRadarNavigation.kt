@@ -51,7 +51,7 @@ fun BleRadarNavigation(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("BLE Radar") }
+                title = { Text("BLE Guardian") }
             )
         },
         bottomBar = {

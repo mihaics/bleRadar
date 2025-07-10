@@ -61,7 +61,7 @@ fun SettingsScreen(
             ) {
                 Column {
                     Text(
-                        text = "BLE Radar Service",
+                        text = "BLE Guardian Service",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -355,7 +355,7 @@ fun SettingsScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "About BLE Radar",
+                        text = "About BLE Guardian",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -364,7 +364,7 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 
                 Text(
-                    text = "BLE Radar continuously scans for Bluetooth Low Energy devices and tracks their locations. It can detect if a device is potentially following you by analyzing movement patterns and proximity over time.",
+                    text = "BLE Guardian continuously scans for Bluetooth Low Energy devices and tracks their locations. It can detect if a device is potentially following you by analyzing movement patterns and proximity over time.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                 )

@@ -76,57 +76,57 @@ class PowerManagementHelper(private val context: Context) {
             manufacturer.contains("samsung") -> {
                 """
                 Samsung Device Instructions:
-                1. Go to Settings > Apps > BLE Radar
+                1. Go to Settings > Apps > BLE Guardian
                 2. Tap "Battery" 
                 3. Turn off "Optimize battery usage"
                 4. Go to Settings > Device care > Battery > More battery settings
-                5. Turn off "Adaptive battery" or add BLE Radar to "Apps that won't be optimized"
+                5. Turn off "Adaptive battery" or add BLE Guardian to "Apps that won't be optimized"
                 """.trimIndent()
             }
             manufacturer.contains("huawei") -> {
                 """
                 Huawei Device Instructions:
-                1. Go to Settings > Apps > BLE Radar
+                1. Go to Settings > Apps > BLE Guardian
                 2. Tap "Battery"
                 3. Set "Launch" to "Manage manually"
                 4. Enable "Auto-launch", "Secondary launch", and "Run in background"
                 5. Go to Settings > Battery > More battery settings
-                6. Turn off "Optimize battery usage" for BLE Radar
+                6. Turn off "Optimize battery usage" for BLE Guardian
                 """.trimIndent()
             }
             manufacturer.contains("xiaomi") -> {
                 """
                 Xiaomi Device Instructions:
-                1. Go to Settings > Apps > Manage apps > BLE Radar
+                1. Go to Settings > Apps > Manage apps > BLE Guardian
                 2. Tap "Battery saver" and select "No restrictions"
                 3. Enable "Autostart"
                 4. Go to Settings > Battery & performance > Battery
-                5. Turn off "Optimize battery usage" for BLE Radar
+                5. Turn off "Optimize battery usage" for BLE Guardian
                 """.trimIndent()
             }
             manufacturer.contains("oppo") || manufacturer.contains("oneplus") -> {
                 """
                 OnePlus/OPPO Device Instructions:
-                1. Go to Settings > Apps > BLE Radar
+                1. Go to Settings > Apps > BLE Guardian
                 2. Tap "Battery" and select "Don't optimize"
                 3. Go to Settings > Battery > Battery optimization
-                4. Find BLE Radar and select "Don't optimize"
+                4. Find BLE Guardian and select "Don't optimize"
                 5. Enable "Allow background activity" in app settings
                 """.trimIndent()
             }
             manufacturer.contains("vivo") -> {
                 """
                 Vivo Device Instructions:
-                1. Go to Settings > Apps > BLE Radar
+                1. Go to Settings > Apps > BLE Guardian
                 2. Tap "Battery" and turn off "Background app refresh"
                 3. Go to Settings > Battery > High background power consumption
-                4. Add BLE Radar to the whitelist
+                4. Add BLE Guardian to the whitelist
                 """.trimIndent()
             }
             else -> {
                 """
                 General Instructions:
-                1. Go to Settings > Apps > BLE Radar
+                1. Go to Settings > Apps > BLE Guardian
                 2. Look for "Battery" or "Power" settings
                 3. Disable battery optimization/power saving for this app
                 4. Enable "Allow background activity" if available
@@ -154,9 +154,9 @@ class PowerManagementHelper(private val context: Context) {
      */
     fun getPowerManagementMessage(): String {
         return if (isBatteryOptimizationDisabled()) {
-            "✅ Battery optimization is disabled. BLE Radar should work properly in the background."
+            "✅ Battery optimization is disabled. BLE Guardian should work properly in the background."
         } else {
-            "⚠️ Battery optimization is enabled. This may prevent BLE Radar from detecting devices when your phone is inactive. Please disable battery optimization for better tracking."
+            "⚠️ Battery optimization is enabled. This may prevent BLE Guardian from detecting devices when your phone is inactive. Please disable battery optimization for better tracking."
         }
     }
 }

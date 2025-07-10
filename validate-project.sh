@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🔍 BLE Radar Project Validation"
+echo "🔍 BLE Guardian Project Validation"
 echo "================================"
 
 # Check project structure

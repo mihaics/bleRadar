@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">BLE Radar</string>
+    <string name="app_name">BLE Guardian</string>
     <string name="scan_in_progress">Scanning for BLE devices...</string>
     <string name="device_found">Device found: %1$s</string>
     <string name="location_permission_required">Location permission required for BLE scanning</string>

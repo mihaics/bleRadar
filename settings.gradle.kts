@@ -13,5 +13,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "BLE Radar"
+rootProject.name = "BLE Guardian"
 include(":app")

@@ -1,6 +1,6 @@
-# BleRadar - BLE Tracker Detection App
+# BLE Guardian - BLE Tracker Detection App
 
-BleRadar is a native Android application designed to detect and analyze nearby Bluetooth Low Energy (BLE) devices to identify potential unauthorized trackers. It runs a background service to continuously scan for BLE devices, logs their proximity and location, and uses a sophisticated analysis engine to detect suspicious behavior, such as a device consistently following the user.
+BLE Guardian is a native Android application designed to detect and analyze nearby Bluetooth Low Energy (BLE) devices to identify potential unauthorized trackers. It runs a background service to continuously scan for BLE devices, logs their proximity and location, and uses a sophisticated analysis engine to detect suspicious behavior, such as a device consistently following the user.
 
 ## Features
 
@@ -67,7 +67,7 @@ BleRadar is a native Android application designed to detect and analyze nearby B
 ## Application Architecture
 
 ### Core Components
-*   **BleRadarService:** Background service for continuous BLE scanning with configurable intervals
+*   **BLE GuardianService:** Background service for continuous BLE scanning with configurable intervals
 *   **SettingsManager:** Persistent configuration management using SharedPreferences
 *   **DeviceRepository:** Data access layer with Room database operations
 *   **LocationTracker:** GPS location tracking with accuracy filtering

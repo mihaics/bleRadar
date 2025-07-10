@@ -16,7 +16,7 @@ class PeriodicScanReceiver : BroadcastReceiver() {
         
         when (intent.action) {
             Intent.ACTION_BOOT_COMPLETED,
-            "com.bleradar.START_SCANNING" -> {
+            "com.bleguardian.START_SCANNING" -> {
                 val settingsManager = SettingsManager(context)
                 
                 // Only start service if it was enabled

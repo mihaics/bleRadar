@@ -35,7 +35,7 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.BleRadar"
+        android:theme="@style/Theme.BleGuardian"
         android:enableOnBackInvokedCallback="true"
         tools:targetApi="31">
         
@@ -43,7 +43,7 @@
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
-            android:theme="@style/Theme.BleRadar">
+            android:theme="@style/Theme.BleGuardian">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -63,7 +63,7 @@
             android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="com.bleradar.START_SCANNING" />
+                <action android:name="com.bleguardian.START_SCANNING" />
             </intent-filter>
         </receiver>
 

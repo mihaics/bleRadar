@@ -163,7 +163,7 @@ class BleRadarService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "BLE Radar Service",
+                "BLE Guardian Service",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
                 description = "Background BLE scanning service"
@@ -179,7 +179,7 @@ class BleRadarService : Service() {
 
     private fun createNotification(): Notification {
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("BLE Radar Active")
+            .setContentTitle("BLE Guardian Active")
             .setContentText("Scanning for BLE devices every ${settingsManager.scanIntervalMinutes} minutes")
             .setSmallIcon(R.drawable.ic_radar)
             .setPriority(NotificationCompat.PRIORITY_LOW)
@@ -191,7 +191,7 @@ class BleRadarService : Service() {
 
     private fun createErrorNotification(): Notification {
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("BLE Radar - Permission Required")
+            .setContentTitle("BLE Guardian - Permission Required")
             .setContentText("Please grant all required permissions in Settings")
             .setSmallIcon(R.drawable.ic_radar)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
