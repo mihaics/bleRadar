@@ -19,6 +19,7 @@ class SettingsManager @Inject constructor(
         private const val KEY_AUTO_CLEANUP_ENABLED = "auto_cleanup_enabled"
         private const val KEY_DETECTION_RETENTION_DAYS = "detection_retention_days"
         private const val KEY_LOCATION_RETENTION_DAYS = "location_retention_days"
+        private const val KEY_SHOW_MAP_LEGEND = "show_map_legend"
         
         const val DEFAULT_SCAN_INTERVAL = 5 // 5 minutes
         const val DEFAULT_SERVICE_ENABLED = false
@@ -26,6 +27,7 @@ class SettingsManager @Inject constructor(
         const val DEFAULT_AUTO_CLEANUP_ENABLED = true
         const val DEFAULT_DETECTION_RETENTION_DAYS = 90 // 90 days
         const val DEFAULT_LOCATION_RETENTION_DAYS = 30 // 30 days
+        const val DEFAULT_SHOW_MAP_LEGEND = false
     }
     
     private val preferences: SharedPreferences by lazy {
@@ -59,6 +61,10 @@ class SettingsManager @Inject constructor(
     var locationRetentionDays: Int
         get() = preferences.getInt(KEY_LOCATION_RETENTION_DAYS, DEFAULT_LOCATION_RETENTION_DAYS)
         set(value) = preferences.edit().putInt(KEY_LOCATION_RETENTION_DAYS, value).apply()
+    
+    var showMapLegend: Boolean
+        get() = preferences.getBoolean(KEY_SHOW_MAP_LEGEND, DEFAULT_SHOW_MAP_LEGEND)
+        set(value) = preferences.edit().putBoolean(KEY_SHOW_MAP_LEGEND, value).apply()
     
     fun getScanIntervalMillis(): Long {
         return scanIntervalMinutes * 60 * 1000L

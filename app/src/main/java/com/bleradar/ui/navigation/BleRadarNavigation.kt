@@ -110,12 +110,19 @@ fun BleRadarNavigation(
                 )
             }
             composable(Screen.Map.route) {
-                MapScreen()
+                MapScreen(
+                    onNavigateToDeviceDetail = { deviceAddress ->
+                        navController.navigate("device_detail/$deviceAddress")
+                    }
+                )
             }
             composable("${Screen.Map.route}?deviceAddress={deviceAddress}") { backStackEntry ->
                 val deviceAddress = backStackEntry.arguments?.getString("deviceAddress")
                 MapScreen(
-                    focusedDeviceAddress = deviceAddress
+                    focusedDeviceAddress = deviceAddress,
+                    onNavigateToDeviceDetail = { deviceAddress ->
+                        navController.navigate("device_detail/$deviceAddress")
+                    }
                 )
             }
             composable(Screen.Analytics.route) {

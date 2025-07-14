@@ -49,6 +49,20 @@ class DeviceRepository @Inject constructor(
     suspend fun updateDeviceTrackingStatus(address: String, tracked: Boolean) = 
         database.bleDeviceDao().setDeviceTracked(address, tracked)
     
+    suspend fun toggleDeviceTracking(address: String) {
+        val device = database.bleDeviceDao().getDevice(address)
+        device?.let {
+            database.bleDeviceDao().updateDevice(it.copy(isTracked = !it.isTracked))
+        }
+    }
+    
+    suspend fun toggleDeviceIgnore(address: String) {
+        val device = database.bleDeviceDao().getDevice(address)
+        device?.let {
+            database.bleDeviceDao().updateDevice(it.copy(isIgnored = !it.isIgnored))
+        }
+    }
+    
     suspend fun updateFollowingScore(address: String, score: Float) = 
         database.bleDeviceDao().updateFollowingScore(address, score)
     

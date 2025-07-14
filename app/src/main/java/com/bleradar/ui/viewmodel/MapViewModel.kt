@@ -139,6 +139,18 @@ class MapViewModel @Inject constructor(
         }
     }
     
+    fun toggleDeviceTracking(deviceAddress: String) {
+        viewModelScope.launch {
+            deviceRepository.toggleDeviceTracking(deviceAddress)
+        }
+    }
+    
+    fun toggleDeviceIgnore(deviceAddress: String) {
+        viewModelScope.launch {
+            deviceRepository.toggleDeviceIgnore(deviceAddress)
+        }
+    }
+    
     override fun onCleared() {
         super.onCleared()
         locationTracker.stopLocationTracking()
