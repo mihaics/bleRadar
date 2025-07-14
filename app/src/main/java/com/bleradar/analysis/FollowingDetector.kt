@@ -19,6 +19,8 @@ class FollowingDetector @Inject constructor(
         private const val TIME_WINDOW_HOURS = 24
         private const val MIN_DISTANCE_THRESHOLD = 100.0 // meters
         private const val CORRELATION_THRESHOLD = 0.6f
+        private const val MIN_DIVERSE_LOCATIONS = 3 // Minimum diverse locations for threat classification
+        private const val LOCATION_DIVERSITY_RADIUS = 50.0 // meters - locations must be >50m apart
     }
     
     suspend fun analyzeDevice(deviceAddress: String): Float {
@@ -43,6 +45,14 @@ class FollowingDetector @Inject constructor(
         detections: List<BleDetection>,
         userLocations: List<LocationRecord>
     ): Float {
+        // Pre-check: Device must appear in multiple diverse locations to be considered a threat
+        val diverseLocationCount = calculateDiverseLocationCount(detections)
+        if (diverseLocationCount < MIN_DIVERSE_LOCATIONS) {
+            // Device only appears in one location or very close locations - not a following threat
+            // Return a very low score proportional to location diversity
+            return minOf(0.3f, diverseLocationCount * 0.1f)
+        }
+        
         var totalScore = 0f
         var scoreCount = 0
         
@@ -67,6 +77,47 @@ class FollowingDetector @Inject constructor(
         scoreCount++
         
         return if (scoreCount > 0) totalScore / scoreCount else 0f
+    }
+    
+    private fun calculateDiverseLocationCount(detections: List<BleDetection>): Int {
+        if (detections.isEmpty()) return 0
+        
+        // Filter out detections without valid location data
+        val validDetections = detections.filter { 
+            it.latitude != 0.0 && it.longitude != 0.0 
+        }
+        
+        if (validDetections.isEmpty()) return 0
+        
+        // Group detections by location clusters
+        val locationClusters = mutableListOf<List<BleDetection>>()
+        
+        for (detection in validDetections) {
+            // Find if this detection belongs to an existing cluster
+            var belongsToCluster = false
+            
+            for (cluster in locationClusters) {
+                val clusterCenter = cluster.first() // Use first detection as cluster center
+                val distance = calculateDistance(
+                    detection.latitude, detection.longitude,
+                    clusterCenter.latitude, clusterCenter.longitude
+                )
+                
+                if (distance <= LOCATION_DIVERSITY_RADIUS) {
+                    // Add to existing cluster
+                    (cluster as MutableList<BleDetection>).add(detection)
+                    belongsToCluster = true
+                    break
+                }
+            }
+            
+            if (!belongsToCluster) {
+                // Create new cluster
+                locationClusters.add(mutableListOf(detection))
+            }
+        }
+        
+        return locationClusters.size
     }
     
     private fun calculateFrequencyScore(detections: List<BleDetection>): Float {

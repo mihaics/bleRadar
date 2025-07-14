@@ -51,6 +51,16 @@ class AdvancedTrackerDetector @Inject constructor(
             return TrackerAnalysisResult.insufficientData()
         }
         
+        // Early exit: Check if device appears in multiple diverse locations
+        // Devices in single location or within 50m radius are not following threats
+        val diverseLocationCount = calculateDiverseLocationCount(detections)
+        if (diverseLocationCount < 3) {
+            return TrackerAnalysisResult.lowRisk(
+                deviceAddress,
+                "Device only detected in $diverseLocationCount location(s) - not a following threat"
+            )
+        }
+        
         val analysisResults = mutableListOf<PatternAnalysis>()
         
         // 1. Known tracker signature detection
@@ -593,6 +603,48 @@ class AdvancedTrackerDetector @Inject constructor(
         return values.map { (it - mean).pow(2) }.average().toFloat()
     }
     
+    private fun calculateDiverseLocationCount(detections: List<BleDetection>): Int {
+        if (detections.isEmpty()) return 0
+        
+        // Filter out detections without valid location data
+        val validDetections = detections.filter { 
+            it.latitude != 0.0 && it.longitude != 0.0 
+        }
+        
+        if (validDetections.isEmpty()) return 0
+        
+        // Group detections by location clusters (50m radius)
+        val locationClusters = mutableListOf<List<BleDetection>>()
+        val clusterRadius = 50.0 // meters
+        
+        for (detection in validDetections) {
+            // Find if this detection belongs to an existing cluster
+            var belongsToCluster = false
+            
+            for (cluster in locationClusters) {
+                val clusterCenter = cluster.first() // Use first detection as cluster center
+                val distance = calculateDistance(
+                    detection.latitude, detection.longitude,
+                    clusterCenter.latitude, clusterCenter.longitude
+                )
+                
+                if (distance <= clusterRadius) {
+                    // Add to existing cluster
+                    (cluster as MutableList<BleDetection>).add(detection)
+                    belongsToCluster = true
+                    break
+                }
+            }
+            
+            if (!belongsToCluster) {
+                // Create new cluster
+                locationClusters.add(mutableListOf(detection))
+            }
+        }
+        
+        return locationClusters.size
+    }
+    
     data class LocationPoint(val lat: Double, val lon: Double, val timestamp: Long)
     data class Movement(val timestamp: Long, val speed: Double, val bearing: Double)
 }
@@ -622,6 +674,21 @@ data class TrackerAnalysisResult(
             analyses = emptyList(),
             timestamp = System.currentTimeMillis(),
             recommendedAction = RecommendedAction.CONTINUE_MONITORING
+        )
+        
+        fun lowRisk(deviceAddress: String, reason: String) = TrackerAnalysisResult(
+            deviceAddress = deviceAddress,
+            overallScore = 0.1f,
+            riskLevel = RiskLevel.LOW,
+            analyses = listOf(
+                PatternAnalysis(
+                    type = PatternType.PROXIMITY_CORRELATION,
+                    confidence = 0.1f,
+                    metadata = mapOf("reason" to reason)
+                )
+            ),
+            timestamp = System.currentTimeMillis(),
+            recommendedAction = RecommendedAction.NO_ACTION
         )
     }
 }

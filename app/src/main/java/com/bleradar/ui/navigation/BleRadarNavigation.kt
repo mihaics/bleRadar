@@ -122,7 +122,11 @@ fun BleRadarNavigation(
                 SimpleAnalyticsScreen()
             }
             composable(Screen.Alerts.route) {
-                AlertsScreen()
+                AlertsScreen(
+                    onNavigateToMap = { deviceAddress ->
+                        navController.navigate("${Screen.Map.route}?deviceAddress=$deviceAddress")
+                    }
+                )
             }
             composable(Screen.Settings.route) {
                 SettingsScreen()

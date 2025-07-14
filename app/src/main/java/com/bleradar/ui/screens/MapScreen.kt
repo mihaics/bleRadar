@@ -16,6 +16,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bleradar.ui.viewmodel.MapViewModel
@@ -37,6 +42,9 @@ fun MapScreen(
     val currentLocation by viewModel.currentLocation.collectAsStateWithLifecycle(initialValue = null)
     val devices by viewModel.devices.collectAsStateWithLifecycle(initialValue = emptyList())
     
+    val hapticFeedback = LocalHapticFeedback.current
+    val context = LocalContext.current
+    
     var mapView by remember { mutableStateOf<MapView?>(null) }
     
     // Track if we've centered on user location yet  
@@ -50,9 +58,126 @@ fun MapScreen(
     // Track if we've centered on focused device yet
     var hasFocusedDeviceCentered by remember { mutableStateOf(false) }
     
+    // Cluster expansion state
+    var expandedClusterKey by remember { mutableStateOf<String?>(null) }
+    var expandedClusterDevices by remember { mutableStateOf<List<MapViewModel.DeviceLocation>>(emptyList()) }
+    var clusterExpansionAnimating by remember { mutableStateOf(false) }
+    
     // Filter state
     var showOnlyThreatDevices by remember { mutableStateOf(false) }
     var showOnlyRecentDevices by remember { mutableStateOf(false) }
+    
+    // Helper function to expand cluster
+    fun expandCluster(clusterKey: String, deviceGroup: List<MapViewModel.DeviceLocation>) {
+        if (expandedClusterKey == clusterKey) {
+            // Collapse if already expanded
+            hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+            expandedClusterKey = null
+            expandedClusterDevices = emptyList()
+        } else {
+            // Expand cluster
+            hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+            clusterExpansionAnimating = true
+            expandedClusterKey = clusterKey
+            expandedClusterDevices = deviceGroup
+            
+            // Reset animation flag after animation completes
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
+                kotlinx.coroutines.delay(300)
+                clusterExpansionAnimating = false
+            }
+        }
+    }
+    
+    // Helper function to create cluster marker with tap handling
+    fun createClusterMarker(
+        map: MapView,
+        clusterKey: String,
+        deviceGroup: List<MapViewModel.DeviceLocation>,
+        devices: List<BleDevice>,
+        isExpanded: Boolean
+    ): Marker {
+        val centerLat = deviceGroup.map { it.latitude }.average()
+        val centerLon = deviceGroup.map { it.longitude }.average()
+        
+        val clusterMarker = Marker(map)
+        clusterMarker.position = GeoPoint(centerLat, centerLon)
+        
+        // Set cluster appearance based on expansion state
+        clusterMarker.title = if (isExpanded) {
+            "📂 Cluster (${deviceGroup.size}) - Expanded"
+        } else {
+            "📁 Cluster (${deviceGroup.size}) - Tap to expand"
+        }
+        
+        // Set cluster snippet with device information and interaction hint
+        clusterMarker.snippet = buildString {
+            append("${deviceGroup.size} devices in this area:\n")
+            deviceGroup.take(3).forEach { deviceLocation ->
+                val deviceName = devices.find { it.deviceAddress == deviceLocation.deviceAddress }?.deviceName
+                    ?: "Unknown Device"
+                append("• $deviceName (${deviceLocation.rssi} dBm)\n")
+            }
+            if (deviceGroup.size > 3) {
+                append("• ... and ${deviceGroup.size - 3} more")
+            }
+            if (isExpanded && deviceGroup.size > 20) {
+                append("\nShowing first 20 devices for performance")
+            }
+            append("\nTap to ${if (isExpanded) "collapse" else "expand"}")
+        }
+        
+        // Set cluster appearance based on highest threat level and expansion state
+        val maxThreatScore = deviceGroup.maxOfOrNull { deviceLocation ->
+            devices.find { it.deviceAddress == deviceLocation.deviceAddress }?.followingScore ?: 0f
+        } ?: 0f
+        
+        clusterMarker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+        when {
+            isExpanded -> clusterMarker.setAlpha(1.0f) // Expanded clusters are fully visible
+            maxThreatScore > 0.7f -> clusterMarker.setAlpha(0.9f) // High threat cluster
+            maxThreatScore > 0.5f -> clusterMarker.setAlpha(0.8f) // Medium threat cluster
+            else -> clusterMarker.setAlpha(0.7f) // Normal cluster
+        }
+        
+        // Add tap listener for cluster expansion
+        clusterMarker.setOnMarkerClickListener { marker, mapView ->
+            expandCluster(clusterKey, deviceGroup)
+            true // Consume the event
+        }
+        
+        return clusterMarker
+    }
+    
+    // Helper function to create expanded device markers with animation offset
+    fun createExpandedDeviceMarker(
+        map: MapView,
+        deviceLocation: MapViewModel.DeviceLocation,
+        devices: List<BleDevice>,
+        focusedDeviceAddress: String?,
+        index: Int,
+        totalDevices: Int
+    ): Marker {
+        val marker = createDeviceMarker(map, deviceLocation, devices, focusedDeviceAddress, true)
+        
+        // Calculate animation offset for expansion effect
+        val angle = (2 * Math.PI * index) / totalDevices
+        val radius = 0.0005 // Small radius for expansion effect
+        val offsetLat = radius * Math.cos(angle)
+        val offsetLon = radius * Math.sin(angle)
+        
+        val originalPos = marker.position
+        marker.position = GeoPoint(
+            originalPos.latitude + offsetLat,
+            originalPos.longitude + offsetLon
+        )
+        
+        // Enhanced marker appearance for expanded state
+        marker.setAlpha(0.95f)
+        marker.title = "🔍 ${marker.title}" // Add search icon to indicate expanded state
+        
+        return marker
+    }
     
     // Helper function to create individual device markers
     fun createDeviceMarker(
@@ -101,9 +226,33 @@ fun MapScreen(
         val threatScore = device?.followingScore ?: 0f
         when {
             focusedDeviceAddress == deviceLocation.deviceAddress -> {
-                // Focused device - bright and prominent
-                marker.setAlpha(1.0f)
-                marker.title = "🎯 $deviceName"
+                // Focused device - show historical trail with different markers
+                val currentTime = System.currentTimeMillis()
+                val ageInHours = (currentTime - deviceLocation.timestamp) / (1000 * 60 * 60)
+                
+                when {
+                    ageInHours < 1 -> {
+                        // Last hour - most recent location
+                        marker.setAlpha(1.0f)
+                        marker.title = "🎯 $deviceName (Latest)"
+                    }
+                    ageInHours < 6 -> {
+                        // Last 6 hours - recent location
+                        marker.setAlpha(0.8f)
+                        marker.title = "📍 $deviceName (${ageInHours.toInt()}h ago)"
+                    }
+                    ageInHours < 24 -> {
+                        // Last day - older location
+                        marker.setAlpha(0.6f)
+                        marker.title = "📌 $deviceName (${ageInHours.toInt()}h ago)"
+                    }
+                    else -> {
+                        // Older than 24 hours - historical location
+                        val ageInDays = ageInHours / 24
+                        marker.setAlpha(0.4f)
+                        marker.title = "🔘 $deviceName (${ageInDays.toInt()}d ago)"
+                    }
+                }
             }
             device?.isKnownTracker == true -> {
                 // Known tracker - high visibility
@@ -259,6 +408,13 @@ fun MapScreen(
         }
     }
     
+    // Load device location history when focused device is specified
+    LaunchedEffect(focusedDeviceAddress) {
+        if (focusedDeviceAddress != null) {
+            viewModel.loadDeviceLocationHistory(focusedDeviceAddress, days = 7)
+        }
+    }
+    
     // Focus on device if specified
     LaunchedEffect(focusedDeviceAddress, filteredDeviceLocations) {
         if (focusedDeviceAddress != null && filteredDeviceLocations.isNotEmpty() && !hasFocusedDeviceCentered) {
@@ -297,47 +453,59 @@ fun MapScreen(
                 clusteredDevices.getOrPut(locationKey) { mutableListOf() }.add(deviceLocation)
             }
             
-            // Add device markers with clustering
-            clusteredDevices.entries.forEach { (_, deviceGroup) ->
+            // Add device markers with expandable clustering
+            clusteredDevices.entries.forEach { (locationKey, deviceGroup) ->
                 if (deviceGroup.size == 1) {
                     // Single device - create normal marker
                     val deviceLocation = deviceGroup.first()
                     val marker = createDeviceMarker(map, deviceLocation, devices, focusedDeviceAddress, false)
                     map.overlays.add(marker)
                 } else {
-                    // Multiple devices in same area - create cluster marker
-                    val centerLat = deviceGroup.map { it.latitude }.average()
-                    val centerLon = deviceGroup.map { it.longitude }.average()
+                    // Multiple devices in same area - create expandable cluster
+                    val isExpanded = expandedClusterKey == locationKey
                     
-                    val clusterMarker = Marker(map)
-                    clusterMarker.position = GeoPoint(centerLat, centerLon)
-                    clusterMarker.title = "Device Cluster (${deviceGroup.size})"
-                    clusterMarker.snippet = buildString {
-                        append("${deviceGroup.size} devices in this area:\n")
-                        deviceGroup.take(3).forEach { deviceLocation ->
-                            val deviceName = devices.find { it.deviceAddress == deviceLocation.deviceAddress }?.deviceName
-                                ?: "Unknown Device"
-                            append("• $deviceName (${deviceLocation.rssi} dBm)\n")
+                    if (isExpanded) {
+                        // Show expanded individual markers (limit to 20 for performance)
+                        val maxMarkersToShow = 20
+                        val markersToShow = deviceGroup.take(maxMarkersToShow)
+                        
+                        markersToShow.forEachIndexed { index, deviceLocation ->
+                            val marker = createExpandedDeviceMarker(
+                                map, deviceLocation, devices, focusedDeviceAddress, 
+                                index, markersToShow.size
+                            )
+                            map.overlays.add(marker)
                         }
-                        if (deviceGroup.size > 3) {
-                            append("• ... and ${deviceGroup.size - 3} more")
-                        }
+                        
+                        // Also add the cluster marker in expanded state
+                        val clusterMarker = createClusterMarker(
+                            map, locationKey, deviceGroup, devices, isExpanded
+                        )
+                        map.overlays.add(clusterMarker)
+                    } else {
+                        // Show collapsed cluster marker
+                        val clusterMarker = createClusterMarker(
+                            map, locationKey, deviceGroup, devices, isExpanded
+                        )
+                        map.overlays.add(clusterMarker)
                     }
-                    
-                    // Set cluster appearance based on highest threat level in group
-                    val maxThreatScore = deviceGroup.maxOfOrNull { deviceLocation ->
-                        devices.find { it.deviceAddress == deviceLocation.deviceAddress }?.followingScore ?: 0f
-                    } ?: 0f
-                    
-                    clusterMarker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                    when {
-                        maxThreatScore > 0.7f -> clusterMarker.setAlpha(0.9f) // High threat cluster
-                        maxThreatScore > 0.5f -> clusterMarker.setAlpha(0.8f) // Medium threat cluster
-                        else -> clusterMarker.setAlpha(0.7f) // Normal cluster
-                    }
-                    
-                    map.overlays.add(clusterMarker)
                 }
+            }
+            
+            // Add map tap listener to collapse clusters when tapping outside
+            map.setOnTouchListener { _, event ->
+                if (event.action == android.view.MotionEvent.ACTION_UP) {
+                    // Check if tap was not on a marker by adding a small delay
+                    // If no marker was clicked, collapse any expanded clusters
+                    kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
+                        kotlinx.coroutines.delay(100) // Small delay to allow marker click to process
+                        if (expandedClusterKey != null) {
+                            expandedClusterKey = null
+                            expandedClusterDevices = emptyList()
+                        }
+                    }
+                }
+                false // Don't consume the event
             }
             
             map.invalidate()
@@ -535,6 +703,47 @@ fun MapScreen(
                         contentDescription = "Zoom out",
                         tint = MaterialTheme.colorScheme.primary
                     )
+                }
+            }
+            
+            // Cluster expansion indicator
+            if (expandedClusterKey != null) {
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (clusterExpansionAnimating) 
+                            Color.Orange.copy(alpha = 0.9f) 
+                        else 
+                            Color.Green.copy(alpha = 0.9f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (clusterExpansionAnimating) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(
+                                Icons.Default.Add,
+                                contentDescription = "Cluster expanded",
+                                tint = Color.White,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                        Text(
+                            text = if (clusterExpansionAnimating) 
+                                "Expanding..." 
+                            else 
+                                "Cluster Expanded (${expandedClusterDevices.size})",
+                            color = Color.White,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(start = 4.dp)
+                        )
+                    }
                 }
             }
         }

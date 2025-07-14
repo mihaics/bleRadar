@@ -84,6 +84,38 @@ class MapViewModel @Inject constructor(
         }
     }
     
+    fun loadDeviceLocationHistory(deviceAddress: String, days: Int = 7) {
+        viewModelScope.launch {
+            val cutoffTime = System.currentTimeMillis() - (days * 24 * 60 * 60 * 1000)
+            deviceRepository.getDetectionsSince(cutoffTime).collect { detectionList ->
+                // Filter for specific device and valid location data
+                val validDetections = detectionList.filter { detection ->
+                    detection.deviceAddress == deviceAddress && 
+                    detection.latitude != 0.0 && 
+                    detection.longitude != 0.0
+                }
+                
+                // Convert all detections to DeviceLocation objects for this device
+                val deviceLocations = validDetections.map { detection ->
+                    DeviceLocation(
+                        deviceAddress = deviceAddress,
+                        latitude = detection.latitude,
+                        longitude = detection.longitude,
+                        timestamp = detection.timestamp,
+                        rssi = detection.rssi,
+                        accuracy = detection.accuracy,
+                        altitude = detection.altitude,
+                        speed = detection.speed,
+                        bearing = detection.bearing,
+                        detectionCount = 1
+                    )
+                }.sortedByDescending { it.timestamp }
+                
+                _deviceLocations.value = deviceLocations
+            }
+        }
+    }
+    
     fun getDetectionsForDevice(deviceAddress: String): List<BleDetection> {
         return _detections.value.filter { it.deviceAddress == deviceAddress }
     }

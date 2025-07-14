@@ -5,6 +5,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,7 +22,8 @@ import java.util.*
 
 @Composable
 fun AlertsScreen(
-    viewModel: AlertsViewModel = hiltViewModel()
+    viewModel: AlertsViewModel = hiltViewModel(),
+    onNavigateToMap: (deviceAddress: String) -> Unit = {}
 ) {
     val suspiciousDevices by viewModel.suspiciousDevices.collectAsStateWithLifecycle(initialValue = emptyList())
     val trackedDevices by viewModel.trackedDevices.collectAsStateWithLifecycle(initialValue = emptyList())
@@ -85,7 +87,7 @@ fun AlertsScreen(
             }
             
             items(suspiciousDevices) { device ->
-                SuspiciousDeviceCard(device = device, viewModel = viewModel)
+                SuspiciousDeviceCard(device = device, viewModel = viewModel, onNavigateToMap = onNavigateToMap)
             }
         }
         
@@ -102,7 +104,7 @@ fun AlertsScreen(
             }
             
             items(knownTrackers) { device ->
-                KnownTrackerCard(device = device, viewModel = viewModel)
+                KnownTrackerCard(device = device, viewModel = viewModel, onNavigateToMap = onNavigateToMap)
             }
         }
         
@@ -118,7 +120,7 @@ fun AlertsScreen(
             }
             
             items(trackedDevices) { device ->
-                TrackedDeviceCard(device = device, viewModel = viewModel)
+                TrackedDeviceCard(device = device, viewModel = viewModel, onNavigateToMap = onNavigateToMap)
             }
         }
         
@@ -142,7 +144,7 @@ fun AlertsScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SuspiciousDeviceCard(device: BleDevice, viewModel: AlertsViewModel) {
+fun SuspiciousDeviceCard(device: BleDevice, viewModel: AlertsViewModel, onNavigateToMap: (deviceAddress: String) -> Unit = {}) {
     val dateFormat = SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault())
     
     // State for button feedback
@@ -182,6 +184,18 @@ fun SuspiciousDeviceCard(device: BleDevice, viewModel: AlertsViewModel) {
                             color = MaterialTheme.colorScheme.primary
                         )
                     }
+                }
+                
+                // Location history button
+                IconButton(
+                    onClick = { onNavigateToMap(device.deviceAddress) },
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        Icons.Default.LocationOn,
+                        contentDescription = "Show location history",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
                 }
                 
                 Icon(
@@ -280,7 +294,7 @@ fun SuspiciousDeviceCard(device: BleDevice, viewModel: AlertsViewModel) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun KnownTrackerCard(device: BleDevice, viewModel: AlertsViewModel) {
+fun KnownTrackerCard(device: BleDevice, viewModel: AlertsViewModel, onNavigateToMap: (deviceAddress: String) -> Unit = {}) {
     val dateFormat = SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault())
     
     Card(
@@ -313,6 +327,18 @@ fun KnownTrackerCard(device: BleDevice, viewModel: AlertsViewModel) {
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Medium
+                    )
+                }
+                
+                // Location history button
+                IconButton(
+                    onClick = { onNavigateToMap(device.deviceAddress) },
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        Icons.Default.LocationOn,
+                        contentDescription = "Show location history",
+                        tint = MaterialTheme.colorScheme.primary
                     )
                 }
                 
@@ -392,7 +418,7 @@ fun KnownTrackerCard(device: BleDevice, viewModel: AlertsViewModel) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TrackedDeviceCard(device: BleDevice, viewModel: AlertsViewModel) {
+fun TrackedDeviceCard(device: BleDevice, viewModel: AlertsViewModel, onNavigateToMap: (deviceAddress: String) -> Unit = {}) {
     val dateFormat = SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault())
     
     Card(
@@ -427,6 +453,18 @@ fun TrackedDeviceCard(device: BleDevice, viewModel: AlertsViewModel) {
                             color = MaterialTheme.colorScheme.primary
                         )
                     }
+                }
+                
+                // Location history button
+                IconButton(
+                    onClick = { onNavigateToMap(device.deviceAddress) },
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        Icons.Default.LocationOn,
+                        contentDescription = "Show location history",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
                 }
                 
                 Text(
