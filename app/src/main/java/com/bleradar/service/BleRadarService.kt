@@ -18,6 +18,7 @@ import android.os.PowerManager
 import android.os.SystemClock
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
+import com.bleradar.MainActivity
 import com.bleradar.R
 import com.bleradar.data.database.BleDevice
 import com.bleradar.data.database.BleDetection
@@ -178,6 +179,17 @@ class BleRadarService : Service() {
     }
 
     private fun createNotification(): Notification {
+        val intent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            0,
+            intent,
+            PendingIntent.FLAG_IMMUTABLE
+        )
+        
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("BLE Guardian Active")
             .setContentText("Scanning for BLE devices every ${settingsManager.scanIntervalMinutes} minutes")
@@ -186,6 +198,7 @@ class BleRadarService : Service() {
             .setOngoing(true) // Make notification persistent
             .setAutoCancel(false) // Prevent user from dismissing
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setContentIntent(pendingIntent)
             .build()
     }
 
@@ -602,6 +615,19 @@ class BleRadarService : Service() {
             else -> "Suspicious BLE device showing tracking behavior"
         }
         
+        val intent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            putExtra("device_address", device.deviceAddress)
+            putExtra("open_device_details", true)
+        }
+        
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            0,
+            intent,
+            PendingIntent.FLAG_IMMUTABLE
+        )
+        
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(description)
@@ -609,6 +635,7 @@ class BleRadarService : Service() {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setContentIntent(pendingIntent)
             .build()
     }
     
