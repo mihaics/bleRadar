@@ -33,6 +33,7 @@ fun MapScreen(
     viewModel: MapViewModel = hiltViewModel()
 ) {
     val detections by viewModel.detections.collectAsStateWithLifecycle(initialValue = emptyList())
+    val deviceLocations by viewModel.deviceLocations.collectAsStateWithLifecycle(initialValue = emptyList())
     val currentLocation by viewModel.currentLocation.collectAsStateWithLifecycle(initialValue = null)
     val devices by viewModel.devices.collectAsStateWithLifecycle(initialValue = emptyList())
     
@@ -56,23 +57,26 @@ fun MapScreen(
     // Helper function to create individual device markers
     fun createDeviceMarker(
         map: MapView,
-        detection: BleDetection,
+        deviceLocation: MapViewModel.DeviceLocation,
         devices: List<BleDevice>,
         focusedDeviceAddress: String?,
         @Suppress("UNUSED_PARAMETER") isInCluster: Boolean
     ): Marker {
         val marker = Marker(map)
-        marker.position = GeoPoint(detection.latitude, detection.longitude)
+        marker.position = GeoPoint(deviceLocation.latitude, deviceLocation.longitude)
         
         // Find device info
-        val device = devices.find { it.deviceAddress == detection.deviceAddress }
+        val device = devices.find { it.deviceAddress == deviceLocation.deviceAddress }
         val deviceName = device?.deviceName ?: "Unknown Device"
         
         marker.title = deviceName
         marker.snippet = buildString {
-            append("Address: ${detection.deviceAddress}\n")
-            append("RSSI: ${detection.rssi} dBm\n")
-            append("Detected: ${java.text.SimpleDateFormat("MMM dd, HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(detection.timestamp))}")
+            append("Address: ${deviceLocation.deviceAddress}\n")
+            append("RSSI: ${deviceLocation.rssi} dBm\n")
+            append("Last seen: ${java.text.SimpleDateFormat("MMM dd, HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(deviceLocation.timestamp))}")
+            if (deviceLocation.detectionCount > 1) {
+                append("\nDetections: ${deviceLocation.detectionCount}")
+            }
             
             // Add device info if available
             device?.let { dev ->
@@ -96,7 +100,7 @@ fun MapScreen(
         
         val threatScore = device?.followingScore ?: 0f
         when {
-            focusedDeviceAddress == detection.deviceAddress -> {
+            focusedDeviceAddress == deviceLocation.deviceAddress -> {
                 // Focused device - bright and prominent
                 marker.setAlpha(1.0f)
                 marker.title = "🎯 $deviceName"
@@ -131,12 +135,12 @@ fun MapScreen(
         return marker
     }
     
-    // Filter detections for focused device if specified
-    val filteredDetections = remember(detections, focusedDeviceAddress, devices, showOnlyThreatDevices, showOnlyRecentDevices) {
+    // Filter device locations for focused device if specified
+    val filteredDeviceLocations = remember(deviceLocations, focusedDeviceAddress, devices, showOnlyThreatDevices, showOnlyRecentDevices) {
         var filtered = if (focusedDeviceAddress != null) {
-            detections.filter { it.deviceAddress == focusedDeviceAddress }
+            deviceLocations.filter { it.deviceAddress == focusedDeviceAddress }
         } else {
-            detections
+            deviceLocations
         }
         
         // Apply threat filter
@@ -163,9 +167,9 @@ fun MapScreen(
             allPoints.add(GeoPoint(location.latitude, location.longitude))
         }
         
-        // Add all filtered detection locations
-        filteredDetections.forEach { detection ->
-            allPoints.add(GeoPoint(detection.latitude, detection.longitude))
+        // Add all filtered device locations
+        filteredDeviceLocations.forEach { deviceLocation ->
+            allPoints.add(GeoPoint(deviceLocation.latitude, deviceLocation.longitude))
         }
         
         if (allPoints.isEmpty()) return null
@@ -219,7 +223,7 @@ fun MapScreen(
     fun recenterOnLocation() {
         currentLocation?.let { location ->
             mapView?.let { map ->
-                if (filteredDetections.isEmpty()) {
+                if (filteredDeviceLocations.isEmpty()) {
                     // Only current location, use standard zoom
                     map.controller.animateTo(GeoPoint(location.latitude, location.longitude))
                     map.controller.setZoom(15.0)
@@ -247,25 +251,25 @@ fun MapScreen(
     }
     
     // Auto-fit view when filters change
-    LaunchedEffect(filteredDetections, showOnlyThreatDevices, showOnlyRecentDevices) {
+    LaunchedEffect(filteredDeviceLocations, showOnlyThreatDevices, showOnlyRecentDevices) {
         // Only auto-fit when not focusing on a specific device
-        if (focusedDeviceAddress == null && filteredDetections.isNotEmpty()) {
+        if (focusedDeviceAddress == null && filteredDeviceLocations.isNotEmpty()) {
             kotlinx.coroutines.delay(300) // Small delay to allow UI to update
             fitMarkersInView()
         }
     }
     
     // Focus on device if specified
-    LaunchedEffect(focusedDeviceAddress, filteredDetections) {
-        if (focusedDeviceAddress != null && filteredDetections.isNotEmpty() && !hasFocusedDeviceCentered) {
+    LaunchedEffect(focusedDeviceAddress, filteredDeviceLocations) {
+        if (focusedDeviceAddress != null && filteredDeviceLocations.isNotEmpty() && !hasFocusedDeviceCentered) {
             kotlinx.coroutines.delay(300) // Small delay to allow markers to update
-            fitMarkersInView() // Fit all detections for focused device
+            fitMarkersInView() // Fit all locations for focused device
             hasFocusedDeviceCentered = true
         }
     }
     
-    // Update map when location or detections change
-    LaunchedEffect(currentLocation, filteredDetections) {
+    // Update map when location or device locations change
+    LaunchedEffect(currentLocation, filteredDeviceLocations) {
         mapView?.let { map ->
             // Clear existing markers
             map.overlays.clear()
@@ -286,43 +290,43 @@ fun MapScreen(
                 }
             }
             
-            // Group detections by location for clustering (devices within 50m)
-            val clusteredDetections = mutableMapOf<String, MutableList<BleDetection>>()
-            filteredDetections.forEach { detection ->
-                val locationKey = "${(detection.latitude * 1000).toInt()}_${(detection.longitude * 1000).toInt()}"
-                clusteredDetections.getOrPut(locationKey) { mutableListOf() }.add(detection)
+            // Group device locations by coordinates for clustering (devices within 50m)
+            val clusteredDevices = mutableMapOf<String, MutableList<MapViewModel.DeviceLocation>>()
+            filteredDeviceLocations.forEach { deviceLocation ->
+                val locationKey = "${(deviceLocation.latitude * 1000).toInt()}_${(deviceLocation.longitude * 1000).toInt()}"
+                clusteredDevices.getOrPut(locationKey) { mutableListOf() }.add(deviceLocation)
             }
             
-            // Add device detection markers with clustering
-            clusteredDetections.entries.forEach { (_, detectionGroup) ->
-                if (detectionGroup.size == 1) {
+            // Add device markers with clustering
+            clusteredDevices.entries.forEach { (_, deviceGroup) ->
+                if (deviceGroup.size == 1) {
                     // Single device - create normal marker
-                    val detection = detectionGroup.first()
-                    val marker = createDeviceMarker(map, detection, devices, focusedDeviceAddress, false)
+                    val deviceLocation = deviceGroup.first()
+                    val marker = createDeviceMarker(map, deviceLocation, devices, focusedDeviceAddress, false)
                     map.overlays.add(marker)
                 } else {
                     // Multiple devices in same area - create cluster marker
-                    val centerLat = detectionGroup.map { it.latitude }.average()
-                    val centerLon = detectionGroup.map { it.longitude }.average()
+                    val centerLat = deviceGroup.map { it.latitude }.average()
+                    val centerLon = deviceGroup.map { it.longitude }.average()
                     
                     val clusterMarker = Marker(map)
                     clusterMarker.position = GeoPoint(centerLat, centerLon)
-                    clusterMarker.title = "Device Cluster (${detectionGroup.size})"
+                    clusterMarker.title = "Device Cluster (${deviceGroup.size})"
                     clusterMarker.snippet = buildString {
-                        append("${detectionGroup.size} devices in this area:\n")
-                        detectionGroup.take(3).forEach { detection ->
-                            val deviceName = devices.find { it.deviceAddress == detection.deviceAddress }?.deviceName
+                        append("${deviceGroup.size} devices in this area:\n")
+                        deviceGroup.take(3).forEach { deviceLocation ->
+                            val deviceName = devices.find { it.deviceAddress == deviceLocation.deviceAddress }?.deviceName
                                 ?: "Unknown Device"
-                            append("• $deviceName (${detection.rssi} dBm)\n")
+                            append("• $deviceName (${deviceLocation.rssi} dBm)\n")
                         }
-                        if (detectionGroup.size > 3) {
-                            append("• ... and ${detectionGroup.size - 3} more")
+                        if (deviceGroup.size > 3) {
+                            append("• ... and ${deviceGroup.size - 3} more")
                         }
                     }
                     
                     // Set cluster appearance based on highest threat level in group
-                    val maxThreatScore = detectionGroup.maxOfOrNull { detection ->
-                        devices.find { it.deviceAddress == detection.deviceAddress }?.followingScore ?: 0f
+                    val maxThreatScore = deviceGroup.maxOfOrNull { deviceLocation ->
+                        devices.find { it.deviceAddress == deviceLocation.deviceAddress }?.followingScore ?: 0f
                     } ?: 0f
                     
                     clusterMarker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
@@ -382,9 +386,9 @@ fun MapScreen(
                     Column {
                         Text(
                             text = if (focusedDeviceAddress != null) {
-                                "Focused Device Locations: ${filteredDetections.size}"
+                                "Focused Device: ${filteredDeviceLocations.size} locations"
                             } else {
-                                "All Devices: ${filteredDetections.size}"
+                                "Unique Devices: ${filteredDeviceLocations.size}"
                             },
                             style = MaterialTheme.typography.bodyMedium,
                             color = Color.Black
@@ -462,13 +466,13 @@ fun MapScreen(
             ) {
                 IconButton(
                     onClick = { fitMarkersInView() },
-                    enabled = filteredDetections.isNotEmpty(),
+                    enabled = filteredDeviceLocations.isNotEmpty(),
                     modifier = Modifier.size(48.dp)
                 ) {
                     Icon(
                         Icons.Default.Home,
                         contentDescription = "Fit all devices",
-                        tint = if (filteredDetections.isNotEmpty()) 
+                        tint = if (filteredDeviceLocations.isNotEmpty()) 
                             MaterialTheme.colorScheme.primary 
                         else 
                             MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
@@ -536,7 +540,7 @@ fun MapScreen(
         }
         
         // Empty state message when no devices match filters
-        if (filteredDetections.isEmpty() && (showOnlyThreatDevices || showOnlyRecentDevices)) {
+        if (filteredDeviceLocations.isEmpty() && (showOnlyThreatDevices || showOnlyRecentDevices)) {
             Card(
                 modifier = Modifier
                     .padding(16.dp)
