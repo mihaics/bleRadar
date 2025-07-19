@@ -39,4 +39,46 @@ object AppModule {
     fun provideImprovedTrackerDetector(deviceRepository: com.bleradar.repository.DeviceRepository): ImprovedTrackerDetector {
         return ImprovedTrackerDetector(deviceRepository)
     }
+    
+    // Fingerprint DAOs
+    @Provides
+    fun provideDeviceFingerprintDao(database: BleRadarDatabase): com.bleradar.data.database.DeviceFingerprintDao {
+        return database.deviceFingerprintDao()
+    }
+    
+    @Provides
+    fun provideDeviceMacAddressDao(database: BleRadarDatabase): com.bleradar.data.database.DeviceMacAddressDao {
+        return database.deviceMacAddressDao()
+    }
+    
+    @Provides
+    fun provideDeviceAdvertisingDataDao(database: BleRadarDatabase): com.bleradar.data.database.DeviceAdvertisingDataDao {
+        return database.deviceAdvertisingDataDao()
+    }
+    
+    @Provides
+    fun provideFingerprintPatternDao(database: BleRadarDatabase): com.bleradar.data.database.FingerprintPatternDao {
+        return database.fingerprintPatternDao()
+    }
+    
+    @Provides
+    fun provideFingerprintDetectionDao(database: BleRadarDatabase): com.bleradar.data.database.FingerprintDetectionDao {
+        return database.fingerprintDetectionDao()
+    }
+    
+    @Provides
+    fun provideDeviceCorrelationDao(database: BleRadarDatabase): com.bleradar.data.database.DeviceCorrelationDao {
+        return database.deviceCorrelationDao()
+    }
+    
+    @Provides
+    fun provideFingerprintMatchDao(database: BleRadarDatabase): com.bleradar.data.database.FingerprintMatchDao {
+        return database.fingerprintMatchDao()
+    }
+    
+    @Provides
+    @Singleton
+    fun provideFingerprintRepository(database: BleRadarDatabase): com.bleradar.repository.FingerprintRepository {
+        return com.bleradar.repository.FingerprintRepository(database)
+    }
 }

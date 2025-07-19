@@ -38,8 +38,8 @@ import kotlinx.coroutines.launch
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bleradar.ui.viewmodel.MapViewModel
-import com.bleradar.data.database.BleDetection
-import com.bleradar.data.database.BleDevice
+import com.bleradar.data.database.FingerprintDetection
+import com.bleradar.ui.model.DeviceDisplayModel
 import com.bleradar.preferences.SettingsManager
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
@@ -188,7 +188,7 @@ data class LegendItem(
 )
 
 data class InfoWindowData(
-    val device: BleDevice?,
+    val device: DeviceDisplayModel?,
     val deviceLocation: MapViewModel.DeviceLocation,
     val position: GeoPoint,
     val isCluster: Boolean = false,
@@ -236,7 +236,7 @@ fun DeviceInfoWindow(
                     )
                 } else {
                     Text(
-                        text = infoWindowData.device?.deviceName ?: "Unknown Device",
+                        text = infoWindowData.device?.displayName ?: "Unknown Device",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.weight(1f),
@@ -303,7 +303,7 @@ fun ClusterInfoContent(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "• ${deviceLocation.deviceAddress.takeLast(6)}",
+                    text = "• ${deviceLocation.macAddress.takeLast(6)}",
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.weight(1f)
                 )
@@ -347,7 +347,7 @@ fun ClusterInfoContent(
 
 @Composable
 fun DeviceInfoContent(
-    device: BleDevice?,
+    device: DeviceDisplayModel?,
     deviceLocation: MapViewModel.DeviceLocation,
     onTrackDevice: (String) -> Unit,
     onIgnoreDevice: (String) -> Unit,
@@ -358,7 +358,7 @@ fun DeviceInfoContent(
     Column {
         // Device address
         Text(
-            text = deviceLocation.deviceAddress,
+            text = deviceLocation.macAddress,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
@@ -380,11 +380,11 @@ fun DeviceInfoContent(
                 }
                 
                 device?.let { dev ->
-                    if (dev.label != null) {
-                        DetailItem("Label", dev.label)
+                    if (dev.notes != null) {
+                        DetailItem("Notes", dev.notes)
                     }
-                    if (dev.followingScore > 0.3f) {
-                        DetailItem("Threat Level", "${(dev.followingScore * 100).toInt()}%")
+                    if (dev.suspiciousScore > 0.3f) {
+                        DetailItem("Threat Level", "${(dev.suspiciousScore * 100).toInt()}%")
                     }
                 }
             }
@@ -392,7 +392,7 @@ fun DeviceInfoContent(
             // Threat level indicator
             device?.let { dev ->
                 ThreatLevelIndicator(
-                    threatScore = dev.followingScore,
+                    threatScore = dev.suspiciousScore,
                     isKnownTracker = dev.isKnownTracker
                 )
             }
@@ -436,7 +436,7 @@ fun DeviceInfoContent(
             OutlinedButton(
                 onClick = {
                     hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onTrackDevice(deviceLocation.deviceAddress)
+                    onTrackDevice(deviceLocation.deviceUuid)
                 },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.outlinedButtonColors(
@@ -466,11 +466,11 @@ fun DeviceInfoContent(
             OutlinedButton(
                 onClick = {
                     hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onIgnoreDevice(deviceLocation.deviceAddress)
+                    onIgnoreDevice(deviceLocation.deviceUuid)
                 },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.outlinedButtonColors(
-                    containerColor = if (device?.isIgnored == true) 
+                    containerColor = if (device?.isTracked == false) 
                         MaterialTheme.colorScheme.errorContainer 
                     else 
                         Color.Transparent
@@ -486,7 +486,7 @@ fun DeviceInfoContent(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (device?.isIgnored == true) "Unignore" else "Ignore",
+                        text = if (device?.isTracked == false) "Unignore" else "Ignore",
                         fontSize = 14.sp
                     )
                 }
@@ -496,7 +496,7 @@ fun DeviceInfoContent(
             Button(
                 onClick = {
                     hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onShowDetails(deviceLocation.deviceAddress)
+                    onShowDetails(deviceLocation.deviceUuid)
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -576,7 +576,7 @@ fun ThreatLevelIndicator(
 
 @Composable
 fun MapScreen(
-    focusedDeviceAddress: String? = null,
+    focusedDeviceUuid: String? = null,
     viewModel: MapViewModel = hiltViewModel(),
     onNavigateToDeviceDetail: ((String) -> Unit)? = null
 ) {
@@ -623,8 +623,8 @@ fun MapScreen(
     var infoWindowData by remember { mutableStateOf<InfoWindowData?>(null) }
     
     // Show legend automatically on first launch or when focused device is specified
-    LaunchedEffect(focusedDeviceAddress) {
-        if (focusedDeviceAddress != null && !showLegend) {
+    LaunchedEffect(focusedDeviceUuid) {
+        if (focusedDeviceUuid != null && !showLegend) {
             showLegend = true
         }
     }
@@ -709,35 +709,35 @@ fun MapScreen(
     }
     
     // Device action handlers
-    fun handleTrackDevice(deviceAddress: String) {
-        viewModel.toggleDeviceTracking(deviceAddress)
+    fun handleTrackDevice(deviceUuid: String) {
+        viewModel.toggleDeviceTracking(deviceUuid)
         // Refresh info window data
         infoWindowData?.let { currentData ->
-            if (currentData.deviceLocation.deviceAddress == deviceAddress) {
-                val updatedDevice = devices.find { it.deviceAddress == deviceAddress }
+            if (currentData.deviceLocation.deviceUuid == deviceUuid) {
+                val updatedDevice = devices.find { it.deviceUuid == deviceUuid }
                 infoWindowData = currentData.copy(device = updatedDevice)
             }
         }
     }
     
-    fun handleIgnoreDevice(deviceAddress: String) {
-        viewModel.toggleDeviceIgnore(deviceAddress)
+    fun handleIgnoreDevice(deviceUuid: String) {
+        viewModel.toggleDeviceTracking(deviceUuid)
         // Refresh info window data
         infoWindowData?.let { currentData ->
-            if (currentData.deviceLocation.deviceAddress == deviceAddress) {
-                val updatedDevice = devices.find { it.deviceAddress == deviceAddress }
+            if (currentData.deviceLocation.deviceUuid == deviceUuid) {
+                val updatedDevice = devices.find { it.deviceUuid == deviceUuid }
                 infoWindowData = currentData.copy(device = updatedDevice)
             }
         }
     }
     
-    fun handleShowDetails(deviceAddress: String) {
-        onNavigateToDeviceDetail?.invoke(deviceAddress)
+    fun handleShowDetails(deviceUuid: String) {
+        onNavigateToDeviceDetail?.invoke(deviceUuid)
         infoWindowData = null // Close info window
     }
     
     fun showDeviceInfoWindow(deviceLocation: MapViewModel.DeviceLocation, position: GeoPoint) {
-        val device = devices.find { it.deviceAddress == deviceLocation.deviceAddress }
+        val device = devices.find { it.deviceUuid == deviceLocation.deviceUuid }
         infoWindowData = InfoWindowData(
             device = device,
             deviceLocation = deviceLocation,
@@ -761,7 +761,7 @@ fun MapScreen(
         map: MapView,
         clusterKey: String,
         deviceGroup: List<MapViewModel.DeviceLocation>,
-        devices: List<BleDevice>,
+        devices: List<DeviceDisplayModel>,
         isExpanded: Boolean
     ): Marker {
         val centerLat = deviceGroup.map { it.latitude }.average()
@@ -776,7 +776,7 @@ fun MapScreen(
         clusterMarker.snippet = buildString {
             append("${deviceGroup.size} devices in this area:\n")
             deviceGroup.take(3).forEach { deviceLocation ->
-                val deviceName = devices.find { it.deviceAddress == deviceLocation.deviceAddress }?.deviceName
+                val deviceName = devices.find { it.deviceUuid == deviceLocation.deviceUuid }?.displayName
                     ?: "Unknown Device"
                 append("• $deviceName (${deviceLocation.rssi} dBm)\n")
             }
@@ -791,7 +791,7 @@ fun MapScreen(
         
         // Set cluster appearance based on highest threat level and expansion state
         val maxThreatScore = deviceGroup.maxOfOrNull { deviceLocation ->
-            devices.find { it.deviceAddress == deviceLocation.deviceAddress }?.followingScore ?: 0f
+            devices.find { it.deviceUuid == deviceLocation.deviceUuid }?.suspiciousScore ?: 0f
         } ?: 0f
         
         // Set cluster appearance based on threat level
@@ -823,20 +823,21 @@ fun MapScreen(
     fun createDeviceMarker(
         map: MapView,
         deviceLocation: MapViewModel.DeviceLocation,
-        devices: List<BleDevice>,
-        focusedDeviceAddress: String?,
+        devices: List<DeviceDisplayModel>,
+        focusedDeviceUuid: String?,
         @Suppress("UNUSED_PARAMETER") isInCluster: Boolean
     ): Marker {
         val marker = Marker(map)
         marker.position = GeoPoint(deviceLocation.latitude, deviceLocation.longitude)
         
         // Find device info
-        val device = devices.find { it.deviceAddress == deviceLocation.deviceAddress }
-        val deviceName = device?.deviceName ?: "Unknown Device"
+        val device = devices.find { it.deviceUuid == deviceLocation.deviceUuid }
+        val deviceName = device?.displayName ?: "Unknown Device"
         
         marker.title = deviceName
         marker.snippet = buildString {
-            append("Address: ${deviceLocation.deviceAddress}\n")
+            append("UUID: ${deviceLocation.deviceUuid}\n")
+            append("Address: ${deviceLocation.macAddress}\n")
             append("RSSI: ${deviceLocation.rssi} dBm\n")
             append("Last seen: ${java.text.SimpleDateFormat("MMM dd, HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(deviceLocation.timestamp))}")
             if (deviceLocation.detectionCount > 1) {
@@ -845,11 +846,11 @@ fun MapScreen(
             
             // Add device info if available
             device?.let { dev ->
-                if (dev.label != null) {
-                    append("\nLabel: ${dev.label}")
+                if (dev.notes != null) {
+                    append("\nNotes: ${dev.notes}")
                 }
-                if (dev.followingScore > 0.3f) {
-                    append("\nThreat: ${(dev.followingScore * 100).toInt()}%")
+                if (dev.suspiciousScore > 0.3f) {
+                    append("\nThreat: ${(dev.suspiciousScore * 100).toInt()}%")
                 }
                 if (dev.isKnownTracker) {
                     append("\n⚠️ Known Tracker")
@@ -861,11 +862,11 @@ fun MapScreen(
         }
         
         // Enhanced marker appearance based on device characteristics
-        val threatScore = device?.followingScore ?: 0f
+        val threatScore = device?.suspiciousScore ?: 0f
         
         // Set marker title with emoji based on threat level for visual distinction
         val markerTitle = when {
-            focusedDeviceAddress == deviceLocation.deviceAddress -> {
+            focusedDeviceUuid == deviceLocation.deviceUuid -> {
                 // Focused device - show historical trail with different symbols
                 val currentTime = System.currentTimeMillis()
                 val ageInHours = (currentTime - deviceLocation.timestamp) / (1000 * 60 * 60)
@@ -917,12 +918,12 @@ fun MapScreen(
     fun createExpandedDeviceMarker(
         map: MapView,
         deviceLocation: MapViewModel.DeviceLocation,
-        devices: List<BleDevice>,
-        focusedDeviceAddress: String?,
+        devices: List<DeviceDisplayModel>,
+        focusedDeviceUuid: String?,
         index: Int,
         totalDevices: Int
     ): Marker {
-        val marker = createDeviceMarker(map, deviceLocation, devices, focusedDeviceAddress, true)
+        val marker = createDeviceMarker(map, deviceLocation, devices, focusedDeviceUuid, true)
         
         // Calculate animation offset for expansion effect
         val angle = (2 * Math.PI * index) / totalDevices
@@ -944,17 +945,17 @@ fun MapScreen(
     }
     
     // Filter device locations for focused device if specified
-    val filteredDeviceLocations = remember(deviceLocations, focusedDeviceAddress, devices, showOnlyThreatDevices, showOnlyRecentDevices) {
-        var filtered = if (focusedDeviceAddress != null) {
-            deviceLocations.filter { it.deviceAddress == focusedDeviceAddress }
+    val filteredDeviceLocations = remember(deviceLocations, focusedDeviceUuid, devices, showOnlyThreatDevices, showOnlyRecentDevices) {
+        var filtered = if (focusedDeviceUuid != null) {
+            deviceLocations.filter { it.deviceUuid == focusedDeviceUuid }
         } else {
             deviceLocations
         }
         
         // Apply threat filter
         if (showOnlyThreatDevices) {
-            val threatDeviceAddresses = devices.filter { it.followingScore > 0.5f }.map { it.deviceAddress }
-            filtered = filtered.filter { it.deviceAddress in threatDeviceAddresses }
+            val threatDeviceAddresses = devices.filter { it.suspiciousScore > 0.5f }.map { it.primaryMacAddress }
+            filtered = filtered.filter { it.macAddress in threatDeviceAddresses }
         }
         
         // Apply recent filter (last 2 hours)
@@ -1056,22 +1057,22 @@ fun MapScreen(
     // Auto-fit view when filters change
     LaunchedEffect(filteredDeviceLocations, showOnlyThreatDevices, showOnlyRecentDevices) {
         // Only auto-fit when not focusing on a specific device
-        if (focusedDeviceAddress == null && filteredDeviceLocations.isNotEmpty()) {
+        if (focusedDeviceUuid == null && filteredDeviceLocations.isNotEmpty()) {
             kotlinx.coroutines.delay(300) // Small delay to allow UI to update
             fitMarkersInView()
         }
     }
     
     // Load device location history when focused device is specified
-    LaunchedEffect(focusedDeviceAddress) {
-        if (focusedDeviceAddress != null) {
-            viewModel.loadDeviceLocationHistory(focusedDeviceAddress, days = 7)
+    LaunchedEffect(focusedDeviceUuid) {
+        if (focusedDeviceUuid != null) {
+            viewModel.loadDeviceLocationHistory(focusedDeviceUuid, days = 7)
         }
     }
     
     // Focus on device if specified
-    LaunchedEffect(focusedDeviceAddress, filteredDeviceLocations) {
-        if (focusedDeviceAddress != null && filteredDeviceLocations.isNotEmpty() && !hasFocusedDeviceCentered) {
+    LaunchedEffect(focusedDeviceUuid, filteredDeviceLocations) {
+        if (focusedDeviceUuid != null && filteredDeviceLocations.isNotEmpty() && !hasFocusedDeviceCentered) {
             kotlinx.coroutines.delay(300) // Small delay to allow markers to update
             fitMarkersInView() // Fit all locations for focused device
             hasFocusedDeviceCentered = true
@@ -1079,7 +1080,7 @@ fun MapScreen(
     }
     
     // Update map when location or device locations change
-    LaunchedEffect(currentLocation, filteredDeviceLocations) {
+    LaunchedEffect(currentLocation, filteredDeviceLocations, expandedClusterKey) {
         mapView?.let { map ->
             // Clear existing markers
             map.overlays.clear()
@@ -1112,7 +1113,7 @@ fun MapScreen(
                 if (deviceGroup.size == 1) {
                     // Single device - create normal marker
                     val deviceLocation = deviceGroup.first()
-                    val marker = createDeviceMarker(map, deviceLocation, devices, focusedDeviceAddress, false)
+                    val marker = createDeviceMarker(map, deviceLocation, devices, focusedDeviceUuid, false)
                     map.overlays.add(marker)
                 } else {
                     // Multiple devices in same area - create expandable cluster
@@ -1125,7 +1126,7 @@ fun MapScreen(
                         
                         markersToShow.forEachIndexed { index, deviceLocation ->
                             val marker = createExpandedDeviceMarker(
-                                map, deviceLocation, devices, focusedDeviceAddress, 
+                                map, deviceLocation, devices, focusedDeviceUuid, 
                                 index, markersToShow.size
                             )
                             map.overlays.add(marker)
@@ -1146,22 +1147,10 @@ fun MapScreen(
                 }
             }
             
-            // Add map tap listener to collapse clusters and close info windows when tapping outside
-            map.setOnTouchListener { _, event ->
-                if (event.action == android.view.MotionEvent.ACTION_UP) {
-                    // Check if tap was not on a marker by adding a small delay
-                    // If no marker was clicked, collapse any expanded clusters and close info windows
-                    CoroutineScope(Dispatchers.Main).launch {
-                        delay(100) // Small delay to allow marker click to process
-                        if (expandedClusterKey != null) {
-                            expandedClusterKey = null
-                            expandedClusterDevices = emptyList()
-                        }
-                        infoWindowData = null // Close info window
-                    }
-                }
-                false // Don't consume the event
-            }
+            // The map's setOnTouchListener was removed to prevent it from interfering
+            // with marker click events. Tapping a marker should open an info window,
+            // and tapping the map should not immediately close it or collapse clusters.
+            // Info windows are closed via their own dismiss buttons.
             
             
             map.invalidate()
@@ -1209,7 +1198,7 @@ fun MapScreen(
                 ) {
                     Column {
                         Text(
-                            text = if (focusedDeviceAddress != null) {
+                            text = if (focusedDeviceUuid != null) {
                                 "Focused Device: ${filteredDeviceLocations.size} locations"
                             } else {
                                 "Devices: ${filteredDeviceLocations.size} (Total: ${deviceLocations.size})"
@@ -1217,10 +1206,10 @@ fun MapScreen(
                             style = MaterialTheme.typography.bodyMedium,
                             color = Color.Black
                         )
-                        if (focusedDeviceAddress != null) {
-                            val deviceName = devices.find { it.deviceAddress == focusedDeviceAddress }?.deviceName
+                        if (focusedDeviceUuid != null) {
+                            val deviceName = devices.find { it.deviceUuid == focusedDeviceUuid }?.displayName
                             Text(
-                                text = deviceName ?: focusedDeviceAddress,
+                                text = deviceName ?: focusedDeviceUuid,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Color.Gray
                             )
@@ -1246,7 +1235,7 @@ fun MapScreen(
                 }
                 
                 // Filter controls
-                if (focusedDeviceAddress == null) {
+                if (focusedDeviceUuid == null) {
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically

@@ -24,8 +24,8 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bleradar.ui.viewmodel.DeviceListViewModel
-import com.bleradar.ui.viewmodel.DeviceSortOption
-import com.bleradar.data.database.BleDevice
+import com.bleradar.ui.model.DeviceDisplayModel
+import com.bleradar.ui.model.DeviceDisplaySortOption
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -41,7 +41,7 @@ fun DeviceListScreen(
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val showNewDevicesOnly by viewModel.showNewDevicesOnly.collectAsStateWithLifecycle()
     
-    var showLabelDialog by remember { mutableStateOf<BleDevice?>(null) }
+    var showLabelDialog by remember { mutableStateOf<DeviceDisplayModel?>(null) }
     var showSortDialog by remember { mutableStateOf(false) }
     var showSearchBar by remember { mutableStateOf(false) }
     
@@ -176,10 +176,10 @@ fun DeviceListScreen(
                 DeviceCard(
                     device = device,
                     isNew = viewModel.isDeviceNew(device),
-                    onClick = { onDeviceClick(device.deviceAddress) },
-                    onIgnore = { viewModel.ignoreDevice(device.deviceAddress) },
+                    onClick = { onDeviceClick(device.deviceUuid) },
+                    onIgnore = { viewModel.ignoreDevice(device.deviceUuid) },
                     onLabel = { showLabelDialog = device },
-                    onTrack = { viewModel.toggleTracking(device.deviceAddress) }
+                    onTrack = { viewModel.toggleTracking(device.deviceUuid) }
                 )
             }
         }
@@ -203,7 +203,7 @@ fun DeviceListScreen(
             device = device,
             onDismiss = { showLabelDialog = null },
             onConfirm = { label ->
-                viewModel.labelDevice(device.deviceAddress, label)
+                viewModel.labelDevice(device.deviceUuid, label)
                 showLabelDialog = null
             }
         )
@@ -213,7 +213,7 @@ fun DeviceListScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DeviceCard(
-    device: BleDevice,
+    device: DeviceDisplayModel,
     isNew: Boolean = false,
     onClick: () -> Unit = {},
     onIgnore: () -> Unit,
@@ -248,7 +248,7 @@ fun DeviceCard(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = device.deviceName ?: "Unknown Device",
+                            text = device.displayName,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
@@ -268,24 +268,30 @@ fun DeviceCard(
                         }
                     }
                     Text(
-                        text = device.deviceAddress,
+                        text = device.primaryMacAddress,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                     )
-                    if (device.label != null) {
+                    if (device.notes != null) {
                         Text(
-                            text = "Label: ${device.label}",
+                            text = "Label: ${device.notes}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    if (device.macAddressCount > 1) {
+                        Text(
+                            text = "${device.macAddressCount} MAC addresses",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.secondary
                         )
                     }
                 }
                 
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = "${device.rssi} dBm",
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Bold
+                        text = device.getDisplayIcon(),
+                        style = MaterialTheme.typography.titleMedium
                     )
                     Text(
                         text = dateFormat.format(Date(device.lastSeen)),
@@ -305,19 +311,19 @@ fun DeviceCard(
             
             Spacer(modifier = Modifier.height(8.dp))
             
-            // Following score indicator
-            if (device.followingScore > 0.3f) {
+            // Threat level indicator
+            if (device.suspiciousScore > 0.3f) {
                 LinearProgressIndicator(
-                    progress = device.followingScore,
+                    progress = device.suspiciousScore,
                     modifier = Modifier.fillMaxWidth(),
                     color = when {
-                        device.followingScore > 0.7f -> Color.Red
-                        device.followingScore > 0.5f -> Color(0xFFFFA500)
+                        device.suspiciousScore > 0.7f -> Color.Red
+                        device.suspiciousScore > 0.5f -> Color(0xFFFFA500)
                         else -> Color.Yellow
                     }
                 )
                 Text(
-                    text = "Following score: ${(device.followingScore * 100).toInt()}%",
+                    text = "Threat level: ${device.getThreatLevel().name} (${(device.suspiciousScore * 100).toInt()}%)",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                 )
@@ -395,18 +401,18 @@ fun DeviceCard(
 
 @Composable
 fun LabelDialog(
-    device: BleDevice,
+    device: DeviceDisplayModel,
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit
 ) {
-    var label by remember { mutableStateOf(device.label ?: "") }
+    var label by remember { mutableStateOf(device.notes ?: "") }
     
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Label Device") },
         text = {
             Column {
-                Text("Enter a label for ${device.deviceName ?: device.deviceAddress}:")
+                Text("Enter a label for ${device.displayName}:")
                 Spacer(modifier = Modifier.height(8.dp))
                 TextField(
                     value = label,
@@ -436,8 +442,8 @@ fun LabelDialog(
 
 @Composable
 fun SortDialog(
-    currentSort: DeviceSortOption,
-    onSortSelected: (DeviceSortOption) -> Unit,
+    currentSort: DeviceDisplaySortOption,
+    onSortSelected: (DeviceDisplaySortOption) -> Unit,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
@@ -445,7 +451,7 @@ fun SortDialog(
         title = { Text("Sort Devices") },
         text = {
             Column {
-                DeviceSortOption.entries.forEach { option ->
+                DeviceDisplaySortOption.entries.forEach { option ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -460,11 +466,12 @@ fun SortDialog(
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = when (option) {
-                                DeviceSortOption.LAST_SEEN -> "Last Seen"
-                                DeviceSortOption.FIRST_SEEN -> "First Seen"
-                                DeviceSortOption.NAME -> "Device Name"
-                                DeviceSortOption.RSSI -> "Signal Strength"
-                                DeviceSortOption.THREAT_LEVEL -> "Threat Level"
+                                DeviceDisplaySortOption.LAST_SEEN -> "Last Seen"
+                                DeviceDisplaySortOption.FIRST_SEEN -> "First Seen"
+                                DeviceDisplaySortOption.NAME -> "Device Name"
+                                DeviceDisplaySortOption.THREAT_LEVEL -> "Threat Level"
+                                DeviceDisplaySortOption.DEVICE_TYPE -> "Device Type"
+                                DeviceDisplaySortOption.MAC_COUNT -> "MAC Count"
                             },
                             style = MaterialTheme.typography.bodyMedium
                         )

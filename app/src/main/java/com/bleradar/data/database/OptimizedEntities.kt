@@ -31,7 +31,7 @@ data class OptimizedDevice(
     val multiLocationScore: Float = 0f,
     val totalDetections: Int = 0,
     val lastAlertTime: Long = 0L,
-    val isWhitelisted: Boolean = false,
+    val isTracked: Boolean = false,
     val notes: String? = null
 )
 
@@ -173,7 +173,7 @@ enum class DeviceType {
     SMART_SPEAKER,
     BEACON,
     SUSPECTED_TRACKER,
-    WHITELISTED
+    TRACKED
 }
 
 enum class EvidenceType {

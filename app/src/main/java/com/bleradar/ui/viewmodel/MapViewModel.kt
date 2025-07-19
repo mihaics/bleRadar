@@ -2,11 +2,12 @@ package com.bleradar.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.bleradar.data.database.BleDetection
-import com.bleradar.data.database.BleDevice
+import com.bleradar.data.database.FingerprintDetection
+import com.bleradar.data.database.DeviceFingerprint
 import com.bleradar.data.database.LocationRecord
 import com.bleradar.location.LocationTracker
-import com.bleradar.repository.DeviceRepository
+import com.bleradar.repository.FingerprintRepository
+import com.bleradar.ui.model.DeviceDisplayModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,29 +17,32 @@ import javax.inject.Inject
 
 @HiltViewModel
 class MapViewModel @Inject constructor(
-    private val deviceRepository: DeviceRepository,
+    private val fingerprintRepository: FingerprintRepository,
     private val locationTracker: LocationTracker
 ) : ViewModel() {
     
-    private val _detections = MutableStateFlow<List<BleDetection>>(emptyList())
-    val detections: StateFlow<List<BleDetection>> = _detections.asStateFlow()
+    private val _detections = MutableStateFlow<List<FingerprintDetection>>(emptyList())
+    val detections: StateFlow<List<FingerprintDetection>> = _detections.asStateFlow()
     
     private val _deviceLocations = MutableStateFlow<List<DeviceLocation>>(emptyList())
     val deviceLocations: StateFlow<List<DeviceLocation>> = _deviceLocations.asStateFlow()
     
-    val devices = deviceRepository.getAllDevices()
+    private val _devices = MutableStateFlow<List<DeviceDisplayModel>>(emptyList())
+    val devices: StateFlow<List<DeviceDisplayModel>> = _devices.asStateFlow()
+    
     val currentLocation = locationTracker.currentLocation
     
     init {
         loadRecentDetections()
         loadDeviceLocations()
+        loadDevices()
         locationTracker.startLocationTracking()
     }
     
     private fun loadRecentDetections() {
         viewModelScope.launch {
             val last24Hours = System.currentTimeMillis() - (24 * 60 * 60 * 1000)
-            deviceRepository.getDetectionsSince(last24Hours).collect { detectionList ->
+            fingerprintRepository.getDetectionsSince(last24Hours).collect { detectionList ->
                 // Filter out detections without valid location data
                 _detections.value = detectionList.filter { detection ->
                     detection.latitude != 0.0 && detection.longitude != 0.0
@@ -47,24 +51,37 @@ class MapViewModel @Inject constructor(
         }
     }
     
+    private fun loadDevices() {
+        viewModelScope.launch {
+            fingerprintRepository.getAllDeviceFingerprints().collect { fingerprints ->
+                val deviceModels = fingerprints.map { fingerprint ->
+                    val macAddresses = fingerprintRepository.getMacAddressesForDevice(fingerprint.deviceUuid)
+                    DeviceDisplayModel.fromFingerprint(fingerprint, macAddresses)
+                }
+                _devices.value = deviceModels
+            }
+        }
+    }
+    
     private fun loadDeviceLocations() {
         viewModelScope.launch {
             val last24Hours = System.currentTimeMillis() - (24 * 60 * 60 * 1000)
-            deviceRepository.getDetectionsSince(last24Hours).collect { detectionList ->
+            fingerprintRepository.getDetectionsSince(last24Hours).collect { detectionList ->
                 // Filter out detections without valid location data
                 val validDetections = detectionList.filter { detection ->
                     detection.latitude != 0.0 && detection.longitude != 0.0
                 }
                 
-                // Group by device address and get latest location for each device
+                // Group by device UUID and get latest location for each device
                 val deviceLocations = validDetections
-                    .groupBy { it.deviceAddress }
-                    .mapNotNull { (deviceAddress, detections) ->
+                    .groupBy { detection -> detection.deviceUuid }
+                    .mapNotNull { (deviceUuid: String, detections: List<FingerprintDetection>) ->
                         // Get the latest detection for this device
-                        val latestDetection = detections.maxByOrNull { it.timestamp }
+                        val latestDetection = detections.maxByOrNull { detection -> detection.timestamp }
                         latestDetection?.let { detection ->
                             DeviceLocation(
-                                deviceAddress = deviceAddress,
+                                deviceUuid = deviceUuid,
+                                macAddress = detection.macAddress,
                                 latitude = detection.latitude,
                                 longitude = detection.longitude,
                                 timestamp = detection.timestamp,
@@ -77,20 +94,20 @@ class MapViewModel @Inject constructor(
                             )
                         }
                     }
-                    .sortedByDescending { it.timestamp }
+                    .sortedByDescending { deviceLocation -> deviceLocation.timestamp }
                 
                 _deviceLocations.value = deviceLocations
             }
         }
     }
     
-    fun loadDeviceLocationHistory(deviceAddress: String, days: Int = 7) {
+    fun loadDeviceLocationHistory(deviceUuid: String, days: Int = 7) {
         viewModelScope.launch {
             val cutoffTime = System.currentTimeMillis() - (days * 24 * 60 * 60 * 1000)
-            deviceRepository.getDetectionsSince(cutoffTime).collect { detectionList ->
+            fingerprintRepository.getDetectionsSince(cutoffTime).collect { detectionList ->
                 // Filter for specific device and valid location data
                 val validDetections = detectionList.filter { detection ->
-                    detection.deviceAddress == deviceAddress && 
+                    detection.deviceUuid == deviceUuid && 
                     detection.latitude != 0.0 && 
                     detection.longitude != 0.0
                 }
@@ -98,7 +115,8 @@ class MapViewModel @Inject constructor(
                 // Convert all detections to DeviceLocation objects for this device
                 val deviceLocations = validDetections.map { detection ->
                     DeviceLocation(
-                        deviceAddress = deviceAddress,
+                        deviceUuid = deviceUuid,
+                        macAddress = detection.macAddress,
                         latitude = detection.latitude,
                         longitude = detection.longitude,
                         timestamp = detection.timestamp,
@@ -109,26 +127,26 @@ class MapViewModel @Inject constructor(
                         bearing = detection.bearing,
                         detectionCount = 1
                     )
-                }.sortedByDescending { it.timestamp }
+                }.sortedByDescending { deviceLocation -> deviceLocation.timestamp }
                 
                 _deviceLocations.value = deviceLocations
             }
         }
     }
     
-    fun getDetectionsForDevice(deviceAddress: String): List<BleDetection> {
-        return _detections.value.filter { it.deviceAddress == deviceAddress }
+    fun getDetectionsForDevice(deviceUuid: String): List<FingerprintDetection> {
+        return _detections.value.filter { detection -> detection.deviceUuid == deviceUuid }
     }
     
-    fun getDeviceLocation(deviceAddress: String): DeviceLocation? {
-        return _deviceLocations.value.find { it.deviceAddress == deviceAddress }
+    fun getDeviceLocation(deviceUuid: String): DeviceLocation? {
+        return _deviceLocations.value.find { deviceLocation -> deviceLocation.deviceUuid == deviceUuid }
     }
     
-    fun getDeviceLocationHistory(deviceAddress: String, days: Int = 7): List<BleDetection> {
+    fun getDeviceLocationHistory(deviceUuid: String, days: Int = 7): List<FingerprintDetection> {
         val cutoffTime = System.currentTimeMillis() - (days * 24 * 60 * 60 * 1000)
         return _detections.value.filter { detection ->
-            detection.deviceAddress == deviceAddress && detection.timestamp > cutoffTime
-        }.sortedByDescending { it.timestamp }
+            detection.deviceUuid == deviceUuid && detection.timestamp > cutoffTime
+        }.sortedByDescending { detection -> detection.timestamp }
     }
     
     fun refreshDetections() {
@@ -139,15 +157,16 @@ class MapViewModel @Inject constructor(
         }
     }
     
-    fun toggleDeviceTracking(deviceAddress: String) {
+    fun toggleDeviceTracking(deviceUuid: String) {
         viewModelScope.launch {
-            deviceRepository.toggleDeviceTracking(deviceAddress)
-        }
-    }
-    
-    fun toggleDeviceIgnore(deviceAddress: String) {
-        viewModelScope.launch {
-            deviceRepository.toggleDeviceIgnore(deviceAddress)
+            try {
+                val device = fingerprintRepository.getDeviceFingerprint(deviceUuid)
+                device?.let { deviceFingerprint ->
+                    fingerprintRepository.updateTrackedStatus(deviceUuid, !deviceFingerprint.isTracked)
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("MapViewModel", "Error toggling device tracking: ${e.message}")
+            }
         }
     }
     
@@ -157,7 +176,8 @@ class MapViewModel @Inject constructor(
     }
     
     data class DeviceLocation(
-        val deviceAddress: String,
+        val deviceUuid: String,
+        val macAddress: String,
         val latitude: Double,
         val longitude: Double,
         val timestamp: Long,

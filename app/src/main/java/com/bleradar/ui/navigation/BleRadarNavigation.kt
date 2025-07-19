@@ -33,9 +33,11 @@ fun BleRadarNavigation(
 ) {
     val navController = rememberNavController()
     
-    // Handle notification navigation
+    // Handle notification navigation (convert from device address to UUID if needed)
     LaunchedEffect(initialDeviceAddress) {
         if (initialDeviceAddress != null) {
+            // If the parameter is a MAC address, we need to convert it to UUID
+            // For now, pass it as is - DeviceDetailScreen will handle the lookup
             navController.navigate("device_detail/$initialDeviceAddress")
         }
     }
@@ -92,36 +94,36 @@ fun BleRadarNavigation(
         ) {
             composable(Screen.DeviceList.route) {
                 DeviceListScreen(
-                    onDeviceClick = { deviceAddress ->
-                        navController.navigate("device_detail/$deviceAddress")
+                    onDeviceClick = { deviceUuid ->
+                        navController.navigate("device_detail/$deviceUuid")
                     }
                 )
             }
-            composable("device_detail/{deviceAddress}") { backStackEntry ->
-                val deviceAddress = backStackEntry.arguments?.getString("deviceAddress") ?: ""
+            composable("device_detail/{deviceUuid}") { backStackEntry ->
+                val deviceUuid = backStackEntry.arguments?.getString("deviceUuid") ?: ""
                 DeviceDetailScreen(
-                    deviceAddress = deviceAddress,
+                    deviceUuid = deviceUuid,
                     onNavigateBack = {
                         navController.popBackStack()
                     },
-                    onShowOnMap = { address ->
-                        navController.navigate("${Screen.Map.route}?deviceAddress=$address")
+                    onShowOnMap = { uuid ->
+                        navController.navigate("${Screen.Map.route}?deviceUuid=$uuid")
                     }
                 )
             }
             composable(Screen.Map.route) {
                 MapScreen(
-                    onNavigateToDeviceDetail = { deviceAddress ->
-                        navController.navigate("device_detail/$deviceAddress")
+                    onNavigateToDeviceDetail = { deviceUuid ->
+                        navController.navigate("device_detail/$deviceUuid")
                     }
                 )
             }
-            composable("${Screen.Map.route}?deviceAddress={deviceAddress}") { backStackEntry ->
-                val deviceAddress = backStackEntry.arguments?.getString("deviceAddress")
+            composable("${Screen.Map.route}?deviceUuid={deviceUuid}") { backStackEntry ->
+                val deviceUuid = backStackEntry.arguments?.getString("deviceUuid")
                 MapScreen(
-                    focusedDeviceAddress = deviceAddress,
-                    onNavigateToDeviceDetail = { deviceAddress ->
-                        navController.navigate("device_detail/$deviceAddress")
+                    focusedDeviceUuid = deviceUuid,
+                    onNavigateToDeviceDetail = { uuid ->
+                        navController.navigate("device_detail/$uuid")
                     }
                 )
             }
@@ -130,8 +132,8 @@ fun BleRadarNavigation(
             }
             composable(Screen.Alerts.route) {
                 AlertsScreen(
-                    onNavigateToMap = { deviceAddress ->
-                        navController.navigate("${Screen.Map.route}?deviceAddress=$deviceAddress")
+                    onNavigateToMap = { uuid ->
+                        navController.navigate("${Screen.Map.route}?deviceUuid=$uuid")
                     }
                 )
             }

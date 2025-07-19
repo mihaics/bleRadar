@@ -274,7 +274,7 @@ fun DeviceCard(
                 fontWeight = FontWeight.Medium
             )
             Text(
-                text = device.address.take(8) + "...",
+                text = device.deviceUuid.take(8) + "...",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

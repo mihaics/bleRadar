@@ -22,15 +22,16 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bleradar.ui.viewmodel.DeviceDetailViewModel
-import com.bleradar.data.database.BleDevice
-import com.bleradar.data.database.BleDetection
+import com.bleradar.ui.model.DeviceDisplayModel
+import com.bleradar.data.database.FingerprintDetection
+import com.bleradar.data.database.DeviceMacAddress
 import java.text.SimpleDateFormat
 import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DeviceDetailScreen(
-    deviceAddress: String,
+    deviceUuid: String,
     onNavigateBack: () -> Unit,
     onShowOnMap: (String) -> Unit,
     viewModel: DeviceDetailViewModel = hiltViewModel()
@@ -38,9 +39,10 @@ fun DeviceDetailScreen(
     val device by viewModel.device.collectAsStateWithLifecycle()
     val detections by viewModel.detections.collectAsStateWithLifecycle()
     val locationHistory by viewModel.locationHistory.collectAsStateWithLifecycle()
+    val macAddresses by viewModel.macAddresses.collectAsStateWithLifecycle()
     
-    LaunchedEffect(deviceAddress) {
-        viewModel.loadDevice(deviceAddress)
+    LaunchedEffect(deviceUuid) {
+        viewModel.loadDevice(deviceUuid)
     }
     
     Column(
@@ -69,7 +71,7 @@ fun DeviceDetailScreen(
             
             // Show on map button
             IconButton(
-                onClick = { onShowOnMap(deviceAddress) },
+                onClick = { onShowOnMap(deviceUuid) },
                 enabled = locationHistory.isNotEmpty()
             ) {
                 Icon(
@@ -144,7 +146,7 @@ fun DeviceDetailScreen(
 }
 
 @Composable
-fun DeviceInfoCard(device: BleDevice) {
+fun DeviceInfoCard(device: DeviceDisplayModel) {
     val dateFormat = SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault())
     
     Card(
@@ -166,17 +168,22 @@ fun DeviceInfoCard(device: BleDevice) {
             
             InfoRow(
                 label = "Name",
-                value = device.deviceName ?: "Unknown Device"
+                value = device.displayName
             )
             
             InfoRow(
-                label = "Address",
-                value = device.deviceAddress
+                label = "Primary Address",
+                value = device.primaryMacAddress
+            )
+            
+            InfoRow(
+                label = "MAC Address Count",
+                value = device.macAddressCount.toString()
             )
             
             InfoRow(
                 label = "Label",
-                value = device.label ?: "No label"
+                value = device.notes ?: "No label"
             )
             
             InfoRow(
@@ -190,8 +197,8 @@ fun DeviceInfoCard(device: BleDevice) {
             )
             
             InfoRow(
-                label = "RSSI",
-                value = "${device.rssi} dBm"
+                label = "Device UUID",
+                value = device.deviceUuid
             )
             
             InfoRow(
@@ -201,30 +208,30 @@ fun DeviceInfoCard(device: BleDevice) {
             
             InfoRow(
                 label = "Device Type",
-                value = device.deviceType ?: "Unknown"
+                value = device.deviceType.name
             )
             
             InfoRow(
                 label = "Status",
-                value = if (device.isTracked) "Tracked" else if (device.isIgnored) "Ignored" else "Normal"
+                value = if (device.isTracked) "Tracked" else "Normal"
+            )
+            
+            InfoRow(
+                label = "Confidence",
+                value = "${(device.confidence * 100).toInt()}%"
             )
         }
     }
 }
 
 @Composable
-fun ThreatAssessmentCard(device: BleDevice) {
-    val threatLevel = when {
-        device.followingScore > 0.7f -> "HIGH"
-        device.followingScore > 0.5f -> "MEDIUM"
-        device.followingScore > 0.3f -> "LOW"
-        else -> "MINIMAL"
-    }
+fun ThreatAssessmentCard(device: DeviceDisplayModel) {
+    val threatLevel = device.getThreatLevel().name
     
     val threatColor = when {
-        device.followingScore > 0.7f -> Color.Red
-        device.followingScore > 0.5f -> Color(0xFFFFA500)
-        device.followingScore > 0.3f -> Color.Yellow
+        device.suspiciousScore > 0.7f -> Color.Red
+        device.suspiciousScore > 0.5f -> Color(0xFFFFA500)
+        device.suspiciousScore > 0.3f -> Color.Yellow
         else -> Color.Green
     }
     
@@ -268,7 +275,7 @@ fun ThreatAssessmentCard(device: BleDevice) {
                 )
                 
                 Text(
-                    text = "${(device.followingScore * 100).toInt()}%",
+                    text = "${(device.suspiciousScore * 100).toInt()}%",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Bold,
                     color = threatColor
@@ -278,7 +285,7 @@ fun ThreatAssessmentCard(device: BleDevice) {
             Spacer(modifier = Modifier.height(8.dp))
             
             LinearProgressIndicator(
-                progress = device.followingScore,
+                progress = device.suspiciousScore,
                 modifier = Modifier.fillMaxWidth(),
                 color = threatColor
             )
@@ -286,18 +293,18 @@ fun ThreatAssessmentCard(device: BleDevice) {
             Spacer(modifier = Modifier.height(12.dp))
             
             InfoRow(
-                label = "Detection Count",
-                value = device.detectionCount.toString()
+                label = "Total Detections",
+                value = device.totalDetections.toString()
             )
             
             InfoRow(
-                label = "Consecutive Detections",
-                value = device.consecutiveDetections.toString()
+                label = "Suspicious Score",
+                value = "${(device.suspiciousScore * 100).toInt()}%"
             )
             
             InfoRow(
-                label = "Suspicious Activity Score",
-                value = "${(device.suspiciousActivityScore * 100).toInt()}%"
+                label = "Following Score",
+                value = "${(device.followingScore * 100).toInt()}%"
             )
             
             if (device.isKnownTracker) {
@@ -311,7 +318,7 @@ fun ThreatAssessmentCard(device: BleDevice) {
 }
 
 @Composable
-fun LocationHistoryItem(detection: BleDetection) {
+fun LocationHistoryItem(detection: FingerprintDetection) {
     val dateFormat = SimpleDateFormat("MMM dd, HH:mm:ss", Locale.getDefault())
     
     Card(
@@ -358,7 +365,7 @@ fun LocationHistoryItem(detection: BleDetection) {
 
 @Composable
 fun DetectionStatsCard(
-    device: BleDevice,
+    device: DeviceDisplayModel,
     detectionCount: Int
 ) {
     Card(
@@ -390,30 +397,18 @@ fun DetectionStatsCard(
             
             InfoRow(
                 label = "Total Detections",
-                value = detectionCount.toString()
+                value = device.totalDetections.toString()
             )
             
             InfoRow(
-                label = "Average RSSI",
-                value = "${device.averageRssi} dBm"
+                label = "Confidence Level",
+                value = "${(device.confidence * 100).toInt()}%"
             )
             
-            InfoRow(
-                label = "RSSI Variation",
-                value = "${String.format("%.1f", device.rssiVariation)} dBm"
-            )
-            
-            device.lastMovementTime.let { movementTime ->
+            if (device.isKnownTracker) {
                 InfoRow(
-                    label = "Last Movement",
-                    value = SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault()).format(Date(movementTime))
-                )
-            }
-            
-            device.lastAlertTime.let { alertTime ->
-                InfoRow(
-                    label = "Last Alert",
-                    value = SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault()).format(Date(alertTime))
+                    label = "Tracker Type",
+                    value = device.trackerType ?: "Unknown"
                 )
             }
         }

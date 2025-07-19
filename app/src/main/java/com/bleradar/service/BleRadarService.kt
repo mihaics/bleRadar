@@ -20,12 +20,9 @@ import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import com.bleradar.MainActivity
 import com.bleradar.R
-import com.bleradar.data.database.BleDevice
-import com.bleradar.data.database.BleDetection
-import com.bleradar.data.database.BleRadarDatabase
-import com.bleradar.data.database.LocationRecord
-import com.bleradar.data.database.DetectionPattern
-import com.bleradar.data.database.PatternType
+import com.bleradar.data.database.*
+import com.bleradar.fingerprint.BleDeviceFingerprinter
+import com.bleradar.fingerprint.DeviceProcessingResult
 import com.bleradar.location.LocationTracker
 import com.bleradar.analysis.AdvancedTrackerDetector
 import com.bleradar.analysis.TrackerAnalysisResult
@@ -35,6 +32,7 @@ import com.bleradar.preferences.SettingsManager
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -54,6 +52,9 @@ class BleRadarService : Service() {
     
     @Inject
     lateinit var settingsManager: SettingsManager
+    
+    @Inject
+    lateinit var deviceFingerprinter: BleDeviceFingerprinter
 
     private var bluetoothAdapter: BluetoothAdapter? = null
     private var bluetoothLeScanner: BluetoothLeScanner? = null
@@ -63,8 +64,11 @@ class BleRadarService : Service() {
     private var lastAnalysisTime = 0L
     private val deviceDetectionCounts = mutableMapOf<String, Int>()
     private val deviceFirstSeen = mutableMapOf<String, Long>()
+    private val processedDevicesThisScan = ConcurrentHashMap.newKeySet<String>()
+    private var currentScanStartTime = 0L
 
     companion object {
+        const val ACTION_EMERGENCY_SCAN_COMPLETE = "com.bleradar.EMERGENCY_SCAN_COMPLETE"
         const val NOTIFICATION_ID = 1
         const val CHANNEL_ID = "BLE_RADAR_CHANNEL"
         const val SCAN_DURATION_MS = 10000L // 10 seconds
@@ -99,6 +103,8 @@ class BleRadarService : Service() {
             
             // Handle different actions
             val action = intent?.getStringExtra("action")
+            android.util.Log.d("BleRadarService", "Service started with action: $action")
+            
             when (action) {
                 "scan_once" -> {
                     // Perform a single scan cycle triggered by WorkManager
@@ -107,8 +113,21 @@ class BleRadarService : Service() {
                         // Keep service running but don't start continuous scanning
                     }
                 }
+                "emergency_scan" -> {
+                    // Perform emergency scan - single intensive scan cycle
+                    android.util.Log.d("BleRadarService", "Starting emergency scan")
+                    serviceScope.launch {
+                        performEmergencyScan()
+                        // Broadcast completion
+                        val intent = Intent(ACTION_EMERGENCY_SCAN_COMPLETE)
+                        sendBroadcast(intent)
+                        android.util.Log.d("BleRadarService", "Emergency scan completed, broadcast sent.")
+                        // The service will be stopped by the ViewModel
+                    }
+                }
                 else -> {
                     // Default: start continuous scanning for immediate use
+                    android.util.Log.d("BleRadarService", "Starting continuous scanning")
                     startPeriodicScanning()
                 }
             }
@@ -268,6 +287,19 @@ class BleRadarService : Service() {
         android.util.Log.d("BleRadarService", "Scan cycle completed")
     }
 
+    private suspend fun performEmergencyScan() {
+        if (!hasPermissions()) {
+            android.util.Log.e("BleRadarService", "Cannot perform emergency scan: missing permissions")
+            return
+        }
+
+        android.util.Log.d("BleRadarService", "Starting emergency scan cycle...")
+        startScanning()
+        delay(15000L) // 15 seconds intensive scan
+        stopScanning()
+        android.util.Log.d("BleRadarService", "Emergency scan cycle completed")
+    }
+
     private fun startScanning() {
         synchronized(this) {
             if (isScanning || bluetoothLeScanner == null) {
@@ -284,6 +316,10 @@ class BleRadarService : Service() {
                 android.util.Log.e("BleRadarService", "Bluetooth is not enabled")
                 return
             }
+            
+            // Reset deduplication for new scan cycle
+            processedDevicesThisScan.clear()
+            currentScanStartTime = System.currentTimeMillis()
 
             val scanSettings = ScanSettings.Builder()
                 .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
@@ -372,92 +408,56 @@ class BleRadarService : Service() {
             val device = result.device
             val rssi = result.rssi
             val timestamp = System.currentTimeMillis()
+            val macAddress = device.address
+
+            // Atomically check and add the MAC address to the set for this scan cycle.
+            // If add() returns false, it means the MAC was already in the set, so we skip it.
+            if (!processedDevicesThisScan.add(macAddress)) {
+                android.util.Log.d("BleRadarService", "Skipping duplicate device in same scan cycle: $macAddress")
+                return
+            }
             
-            android.util.Log.d("BleRadarService", "Processing device: ${device.address} with RSSI: $rssi")
+            android.util.Log.d("BleRadarService", "Processing device: $macAddress with RSSI: $rssi")
             
             val currentLocation = locationTracker.getCurrentLocation()
             
-            // Store or update device
-            val existingDevice = try {
-                database.bleDeviceDao().getDevice(device.address)
-            } catch (e: Exception) {
-                android.util.Log.e("BleRadarService", "Error getting existing device: ${e.message}")
-                null
-            }
+            // Check if this is a known MAC address first (fast path)
+            val existingDeviceUuid = database.deviceMacAddressDao().getDeviceUuidByMacAddress(macAddress)
+            android.util.Log.d("BleRadarService", "MAC address lookup: $macAddress -> UUID: $existingDeviceUuid")
             
-            // Safely get device name
-            val deviceName = try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    if (ActivityCompat.checkSelfPermission(this@BleRadarService, android.Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
-                        device.name
-                    } else null
-                } else {
-                    device.name
-                }
-            } catch (e: SecurityException) {
-                android.util.Log.w("BleRadarService", "No permission to get device name: ${e.message}")
-                null
-            }
-            
-            val bleDevice = if (existingDevice != null) {
-                existingDevice.copy(
-                    deviceName = deviceName ?: existingDevice.deviceName,
-                    rssi = rssi,
-                    lastSeen = timestamp
-                )
+            val processingResult = if (existingDeviceUuid != null) {
+                // Fast path: Known MAC address - skip expensive fingerprinting
+                android.util.Log.d("BleRadarService", "Fast path: Known MAC address $macAddress -> UUID $existingDeviceUuid")
+                deviceFingerprinter.processKnownDevice(existingDeviceUuid, result, timestamp)
             } else {
-                BleDevice(
-                    deviceAddress = device.address,
-                    deviceName = deviceName,
-                    rssi = rssi,
-                    firstSeen = timestamp,
-                    lastSeen = timestamp,
-                    manufacturer = getManufacturerName(result),
-                    services = getServiceUuids(result)
-                )
+                // Slow path: Unknown MAC address - use fingerprinting
+                android.util.Log.d("BleRadarService", "Slow path: Unknown MAC address $macAddress - running fingerprinting")
+                deviceFingerprinter.processScanResult(result, timestamp)
             }
             
-            try {
-                database.bleDeviceDao().insertDevice(bleDevice)
-                android.util.Log.d("BleRadarService", "Device stored: ${device.address}")
-            } catch (e: Exception) {
-                android.util.Log.e("BleRadarService", "Error storing device: ${e.message}")
-                return
-            }
-        
-        // Store detection with or without location
-        val detection = if (currentLocation != null) {
-            BleDetection(
-                deviceAddress = device.address,
+            android.util.Log.d("BleRadarService", "Device processed: UUID=${processingResult.deviceUuid}, isNew=${processingResult.isNewDevice}, MAC=${processingResult.macAddress}")
+            
+            // Store fingerprint detection
+            val fingerprintDetection = FingerprintDetection(
+                deviceUuid = processingResult.deviceUuid,
+                macAddress = processingResult.macAddress,
                 timestamp = timestamp,
                 rssi = rssi,
-                latitude = currentLocation.latitude,
-                longitude = currentLocation.longitude,
-                accuracy = currentLocation.accuracy,
-                altitude = if (currentLocation.hasAltitude()) currentLocation.altitude else null,
-                speed = if (currentLocation.hasSpeed()) currentLocation.speed else null,
-                bearing = if (currentLocation.hasBearing()) currentLocation.bearing else null
+                latitude = currentLocation?.latitude ?: 0.0,
+                longitude = currentLocation?.longitude ?: 0.0,
+                accuracy = currentLocation?.accuracy ?: 0.0f,
+                altitude = if (currentLocation?.hasAltitude() == true) currentLocation.altitude else null,
+                speed = if (currentLocation?.hasSpeed() == true) currentLocation.speed else null,
+                bearing = if (currentLocation?.hasBearing() == true) currentLocation.bearing else null,
+                advertisingInterval = calculateAdvertisingInterval(processingResult.deviceUuid),
+                txPower = result.scanRecord?.txPowerLevel
             )
-        } else {
-            // Store without location data (use default coordinates)
-            BleDetection(
-                deviceAddress = device.address,
-                timestamp = timestamp,
-                rssi = rssi,
-                latitude = 0.0,
-                longitude = 0.0,
-                accuracy = 0.0f,
-                altitude = null,
-                speed = null,
-                bearing = null
-            )
-        }
-        
+            
             try {
-                database.bleDetectionDao().insertDetection(detection)
-                android.util.Log.d("BleRadarService", "Detection stored for: ${device.address}")
+                database.fingerprintDetectionDao().insertDetection(fingerprintDetection)
+                android.util.Log.d("BleRadarService", "Fingerprint detection stored for: ${processingResult.deviceUuid}")
             } catch (e: Exception) {
-                android.util.Log.e("BleRadarService", "Error storing detection: ${e.message}")
+                android.util.Log.e("BleRadarService", "Error storing fingerprint detection: ${e.message}")
             }
             
             // Store location record only if we have location
@@ -479,145 +479,159 @@ class BleRadarService : Service() {
                 }
             }
             
-            // Enhanced tracking analysis
-            performEnhancedAnalysis(device.address, bleDevice)
+            // Enhanced tracking analysis using fingerprints
+            performFingerprintAnalysis(processingResult)
             
         } catch (e: Exception) {
             android.util.Log.e("BleRadarService", "Error processing scan result: ${e.message}")
         }
     }
     
-    private suspend fun performEnhancedAnalysis(deviceAddress: String, bleDevice: BleDevice) {
+    private suspend fun performFingerprintAnalysis(processingResult: DeviceProcessingResult) {
         try {
             val currentTime = System.currentTimeMillis()
+            val deviceUuid = processingResult.deviceUuid
             
-            // Update detection counts
-            val currentCount = deviceDetectionCounts.getOrDefault(deviceAddress, 0) + 1
-            deviceDetectionCounts[deviceAddress] = currentCount
+            // Update detection counts based on UUID instead of MAC
+            val currentCount = deviceDetectionCounts.getOrDefault(deviceUuid, 0) + 1
+            deviceDetectionCounts[deviceUuid] = currentCount
             
             // Track first seen
-            if (!deviceFirstSeen.containsKey(deviceAddress)) {
-                deviceFirstSeen[deviceAddress] = currentTime
+            if (!deviceFirstSeen.containsKey(deviceUuid)) {
+                deviceFirstSeen[deviceUuid] = currentTime
             }
             
-            // Calculate enhanced metrics
+            // Get fingerprint detections for analysis
             val detections = try {
-                deviceRepository.getDetectionsForDeviceSince(
-                    deviceAddress, 
+                database.fingerprintDetectionDao().getDetectionsForDeviceSince(
+                    deviceUuid, 
                     currentTime - (24 * 60 * 60 * 1000) // Last 24 hours
                 ).first()
             } catch (e: Exception) {
-                emptyList<BleDetection>()
+                emptyList<FingerprintDetection>()
             }
             
             if (detections.isNotEmpty()) {
                 val rssiValues = detections.map { it.rssi.toFloat() }
+                @Suppress("UNUSED_VARIABLE")
                 val avgRssi = rssiValues.average().toFloat()
+                @Suppress("UNUSED_VARIABLE")
                 val rssiVariation = calculateVariance(rssiValues)
                 
                 // Detect movement patterns
-                val lastMovement = detectLastMovement(detections)
-                val isStationary = isDeviceStationary(detections)
+                @Suppress("UNUSED_VARIABLE")
+                val lastMovement = detectLastMovementFromFingerprints(detections)
+                @Suppress("UNUSED_VARIABLE")
+                val isStationary = isDeviceStationaryFromFingerprints(detections)
                 
-                // Check for known tracker signatures
-                val trackerInfo = identifyTrackerType(bleDevice)
+                // Get device fingerprint for analysis
+                val deviceFingerprint = database.deviceFingerprintDao().getDeviceFingerprint(deviceUuid)
                 
-                // Update device metrics
-                deviceRepository.updateDeviceMetrics(
-                    address = deviceAddress,
-                    count = currentCount,
-                    consecutive = calculateConsecutiveDetections(deviceAddress),
-                    maxConsecutive = getMaxConsecutiveDetections(deviceAddress),
-                    avgRssi = avgRssi,
-                    rssiVar = rssiVariation,
-                    lastMovement = lastMovement,
-                    stationary = isStationary,
-                    suspiciousScore = 0f, // Will be updated by analysis
-                    knownTracker = trackerInfo.first,
-                    trackerType = trackerInfo.second
-                )
-                
-                // Periodic advanced analysis
-                if (currentTime - lastAnalysisTime > ANALYSIS_INTERVAL_MS) {
-                    lastAnalysisTime = currentTime
-                    performAdvancedTrackerAnalysis(deviceAddress)
+                if (deviceFingerprint != null) {
+                    // Update device fingerprint metrics
+                    val updatedFingerprint = deviceFingerprint.copy(
+                        totalDetections = currentCount,
+                        lastSeen = currentTime,
+                        suspiciousScore = calculateSuspiciousScore(detections, deviceFingerprint)
+                    )
+                    database.deviceFingerprintDao().updateDeviceFingerprint(updatedFingerprint)
+                    
+                    // Periodic advanced analysis
+                    if (currentTime - lastAnalysisTime > ANALYSIS_INTERVAL_MS) {
+                        lastAnalysisTime = currentTime
+                        performAdvancedFingerprintAnalysis(deviceUuid)
+                    }
                 }
             }
             
         } catch (e: Exception) {
-            android.util.Log.e("BleRadarService", "Error in enhanced analysis: ${e.message}")
+            android.util.Log.e("BleRadarService", "Error in fingerprint analysis: ${e.message}")
         }
     }
     
-    private suspend fun performAdvancedTrackerAnalysis(deviceAddress: String) {
+    private suspend fun performAdvancedFingerprintAnalysis(deviceUuid: String) {
         try {
-            val analysisResult = advancedTrackerDetector.analyzeDeviceForTracking(deviceAddress)
-            
-            // Update suspicious activity score
-            deviceRepository.updateSuspiciousScore(deviceAddress, analysisResult.overallScore)
-            
-            // Store detection patterns
-            analysisResult.analyses.forEach { analysis ->
-                val pattern = DetectionPattern(
-                    deviceAddress = deviceAddress,
-                    timestamp = System.currentTimeMillis(),
-                    patternType = analysis.type.value,
-                    confidence = analysis.confidence,
-                    metadata = analysis.metadata.entries.joinToString(";") { "${it.key}=${it.value}" }
-                )
-                deviceRepository.insertPattern(pattern)
+            // Get device fingerprint
+            val deviceFingerprint = database.deviceFingerprintDao().getDeviceFingerprint(deviceUuid)
+            if (deviceFingerprint == null) {
+                android.util.Log.e("BleRadarService", "Device fingerprint not found for UUID: $deviceUuid")
+                return
             }
             
+            // Analyze fingerprint patterns
+            val patterns = database.fingerprintPatternDao().getPatternsForDevice(deviceUuid)
+            val detections = database.fingerprintDetectionDao().getDetectionsForDeviceSince(
+                deviceUuid, 
+                System.currentTimeMillis() - (24 * 60 * 60 * 1000)
+            ).first()
+            
+            // Calculate advanced metrics
+            val uniqueLocationCount = database.fingerprintDetectionDao().getUniqueLocationCountForDevice(deviceUuid)
+            val avgRssi = database.fingerprintDetectionDao().getAverageRssiForDevice(deviceUuid, System.currentTimeMillis() - (24 * 60 * 60 * 1000)) ?: 0f
+            
+            // Calculate suspicious score based on multiple factors
+            val suspiciousScore = calculateAdvancedSuspiciousScore(
+                deviceFingerprint,
+                patterns,
+                detections,
+                uniqueLocationCount,
+                avgRssi
+            )
+            
+            // Update device suspicious score
+            database.deviceFingerprintDao().updateSuspiciousScore(deviceUuid, suspiciousScore)
+            
             // Generate alerts for high-risk devices
-            if (analysisResult.riskLevel == RiskLevel.HIGH || analysisResult.riskLevel == RiskLevel.CRITICAL) {
-                handleTrackerAlert(deviceAddress, analysisResult)
+            if (suspiciousScore > 0.7f) {
+                handleFingerprintAlert(deviceUuid, suspiciousScore)
             }
             
         } catch (e: Exception) {
-            android.util.Log.e("BleRadarService", "Error in advanced tracker analysis: ${e.message}")
+            android.util.Log.e("BleRadarService", "Error in advanced fingerprint analysis: ${e.message}")
         }
     }
     
-    private suspend fun handleTrackerAlert(deviceAddress: String, analysisResult: TrackerAnalysisResult) {
+    private suspend fun handleFingerprintAlert(deviceUuid: String, suspiciousScore: Float) {
         try {
-            val device = deviceRepository.getDevice(deviceAddress) ?: return
+            val deviceFingerprint = database.deviceFingerprintDao().getDeviceFingerprint(deviceUuid) ?: return
             val currentTime = System.currentTimeMillis()
             
             // Check alert cooldown
-            if (currentTime - device.lastAlertTime < ALERT_COOLDOWN_MS) {
+            if (currentTime - deviceFingerprint.lastAlertTime < ALERT_COOLDOWN_MS) {
                 return
             }
             
             // Update last alert time
-            deviceRepository.updateLastAlertTime(deviceAddress, currentTime)
+            val updatedFingerprint = deviceFingerprint.copy(lastAlertTime = currentTime)
+            database.deviceFingerprintDao().updateDeviceFingerprint(updatedFingerprint)
             
             // Create alert notification
-            val alertNotification = createTrackerAlertNotification(device, analysisResult)
+            val alertNotification = createFingerprintAlertNotification(deviceFingerprint, suspiciousScore)
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.notify(deviceAddress.hashCode(), alertNotification)
+            notificationManager.notify(deviceUuid.hashCode(), alertNotification)
             
-            android.util.Log.w("BleRadarService", "Tracker alert for device: $deviceAddress, Risk: ${analysisResult.riskLevel}")
+            android.util.Log.w("BleRadarService", "Fingerprint alert for device: $deviceUuid, Score: $suspiciousScore")
             
         } catch (e: Exception) {
-            android.util.Log.e("BleRadarService", "Error handling tracker alert: ${e.message}")
+            android.util.Log.e("BleRadarService", "Error handling fingerprint alert: ${e.message}")
         }
     }
     
-    private fun createTrackerAlertNotification(device: BleDevice, analysisResult: TrackerAnalysisResult): Notification {
-        val title = when (analysisResult.riskLevel) {
-            RiskLevel.CRITICAL -> "🚨 Critical Tracker Alert"
-            RiskLevel.HIGH -> "⚠️ Suspicious Tracker Detected"
+    private fun createFingerprintAlertNotification(deviceFingerprint: DeviceFingerprint, suspiciousScore: Float): Notification {
+        val title = when {
+            suspiciousScore > 0.9f -> "🚨 Critical Tracker Alert"
+            suspiciousScore > 0.7f -> "⚠️ Suspicious Tracker Detected"
             else -> "📍 Tracker Activity"
         }
         
         val description = when {
-            device.isKnownTracker -> "Known ${device.trackerType} tracker detected"
+            deviceFingerprint.isKnownTracker -> "Known ${deviceFingerprint.trackerType} tracker detected"
             else -> "Suspicious BLE device showing tracking behavior"
         }
         
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-            putExtra("device_address", device.deviceAddress)
+            putExtra("device_uuid", deviceFingerprint.deviceUuid)
             putExtra("open_device_details", true)
         }
         
@@ -665,7 +679,38 @@ class BleRadarService : Service() {
         return sorted.firstOrNull()?.timestamp ?: 0L
     }
     
+    private fun detectLastMovementFromFingerprints(detections: List<FingerprintDetection>): Long {
+        if (detections.size < 2) return 0L
+        
+        val sorted = detections.sortedBy { it.timestamp }
+        for (i in sorted.size - 2 downTo 0) {
+            val curr = sorted[i + 1]
+            val prev = sorted[i]
+            
+            val distance = calculateDistance(
+                prev.latitude, prev.longitude,
+                curr.latitude, curr.longitude
+            )
+            
+            if (distance > 10.0) { // 10 meters movement threshold
+                return curr.timestamp
+            }
+        }
+        return sorted.firstOrNull()?.timestamp ?: 0L
+    }
+    
     private fun isDeviceStationary(detections: List<BleDetection>): Boolean {
+        if (detections.size < 3) return false
+        
+        val recent = detections.takeLast(5)
+        val distances = recent.zipWithNext { a, b ->
+            calculateDistance(a.latitude, a.longitude, b.latitude, b.longitude)
+        }
+        
+        return distances.all { it < 20.0 } // All movements under 20 meters
+    }
+    
+    private fun isDeviceStationaryFromFingerprints(detections: List<FingerprintDetection>): Boolean {
         if (detections.size < 3) return false
         
         val recent = detections.takeLast(5)
@@ -709,6 +754,82 @@ class BleRadarService : Service() {
         }
         
         return Pair(false, null)
+    }
+    
+    private fun calculateAdvertisingInterval(@Suppress("UNUSED_PARAMETER") deviceUuid: String): Long? {
+        // Calculate advertising interval based on previous detections
+        // This is a simplified implementation - in production, you'd track timing patterns
+        return null
+    }
+    
+    private fun calculateSuspiciousScore(detections: List<FingerprintDetection>, deviceFingerprint: DeviceFingerprint): Float {
+        var score = 0f
+        
+        // Higher score for known trackers
+        if (deviceFingerprint.isKnownTracker) {
+            score += 0.5f
+        }
+        
+        // Higher score for devices with multiple MAC addresses
+        if (deviceFingerprint.macAddressCount > 1) {
+            score += 0.3f
+        }
+        
+        // Higher score for devices detected in multiple locations
+        val uniqueLocations = detections.groupBy { "${it.latitude.toInt()},${it.longitude.toInt()}" }.size
+        if (uniqueLocations > 3) {
+            score += 0.2f
+        }
+        
+        // Higher score for consistent RSSI (indicating following)
+        val rssiValues = detections.map { it.rssi.toFloat() }
+        if (rssiValues.isNotEmpty()) {
+            val rssiVariance = calculateVariance(rssiValues)
+            if (rssiVariance < 25) { // Low variance indicates consistent distance
+                score += 0.2f
+            }
+        }
+        
+        return score.coerceIn(0f, 1f)
+    }
+    
+    private fun calculateAdvancedSuspiciousScore(
+        deviceFingerprint: DeviceFingerprint,
+        patterns: List<FingerprintPattern>,
+        detections: List<FingerprintDetection>,
+        uniqueLocationCount: Int,
+        @Suppress("UNUSED_PARAMETER") avgRssi: Float
+    ): Float {
+        var score = 0f
+        
+        // Base score from existing fingerprint
+        score += deviceFingerprint.suspiciousScore * 0.4f
+        
+        // Score based on patterns
+        patterns.forEach { pattern ->
+            when (pattern.patternType) {
+                FingerprintPatternType.SERVICE_UUID_PATTERN -> score += pattern.confidence * 0.2f
+                FingerprintPatternType.MANUFACTURER_DATA_PATTERN -> score += pattern.confidence * 0.2f
+                FingerprintPatternType.COMBINED_SIGNATURE -> score += pattern.confidence * 0.3f
+                else -> score += pattern.confidence * 0.1f
+            }
+        }
+        
+        // Score based on location diversity
+        if (uniqueLocationCount > 5) {
+            score += 0.3f
+        } else if (uniqueLocationCount > 3) {
+            score += 0.2f
+        }
+        
+        // Score based on detection frequency
+        if (detections.size > 50) {
+            score += 0.2f
+        } else if (detections.size > 20) {
+            score += 0.1f
+        }
+        
+        return score.coerceIn(0f, 1f)
     }
     
     private fun calculateConsecutiveDetections(deviceAddress: String): Int {

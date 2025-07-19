@@ -14,7 +14,8 @@ class DataCleanupWorker(
 ) : CoroutineWorker(context, workerParams) {
 
     private val database = BleRadarDatabase.getDatabase(context)
-    private val deviceRepository = DeviceRepository(database)
+    private val fingerprintRepository = com.bleradar.repository.FingerprintRepository(database)
+    private val deviceRepository = DeviceRepository(database, fingerprintRepository)
     private val settingsManager = SettingsManager(context)
 
     companion object {

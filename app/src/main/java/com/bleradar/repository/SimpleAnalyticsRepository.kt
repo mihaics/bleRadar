@@ -13,21 +13,28 @@ class SimpleAnalyticsRepository @Inject constructor(
     
     suspend fun getSimpleAnalytics(daysBack: Int = 7): SimpleAnalytics {
         return try {
-            val allDevices = database.bleDeviceDao().getAllDevicesSync()
+            val allDevices = database.deviceFingerprintDao().getAllDeviceFingerprints().first()
             val cutoffTime = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(daysBack.toLong())
             
             val totalDevices = allDevices.size
             val trackedDevices = allDevices.count { it.isTracked }
-            val suspiciousDevices = allDevices.count { it.suspiciousActivityScore > 0.5f }
+            val suspiciousDevices = allDevices.count { it.suspiciousScore > 0.5f }
             val newDevices = allDevices.count { it.firstSeen >= cutoffTime }
             
-            val averageRssi = if (allDevices.isNotEmpty()) {
-                allDevices.map { it.averageRssi }.average().toFloat()
+            // Calculate average RSSI from recent detections
+            val recentDetections = database.fingerprintDetectionDao().getRecentDetections(cutoffTime).first()
+            val averageRssi = if (recentDetections.isNotEmpty()) {
+                recentDetections.map { it.rssi }.average().toFloat()
             } else 0f
             
-            val totalDetections = allDevices.sumOf { it.detectionCount }
-            val mostActiveDevice = allDevices.maxByOrNull { it.detectionCount }
-            val strongestSignal = allDevices.maxByOrNull { it.averageRssi }
+            val totalDetections = allDevices.sumOf { it.totalDetections }
+            val mostActiveDevice = allDevices.maxByOrNull { it.totalDetections }
+            
+            // Find strongest signal from recent detections
+            val strongestSignalDetection = recentDetections.maxByOrNull { it.rssi }
+            val strongestSignalDevice = strongestSignalDetection?.let { detection ->
+                allDevices.find { it.deviceUuid == detection.deviceUuid }
+            }
             
             SimpleAnalytics(
                 totalDevices = totalDevices,
@@ -37,10 +44,10 @@ class SimpleAnalyticsRepository @Inject constructor(
                 averageRssi = averageRssi,
                 totalDetections = totalDetections,
                 mostActiveDevice = mostActiveDevice?.let { 
-                    DeviceInfo(it.deviceAddress, it.deviceName ?: "Unknown", it.detectionCount)
+                    DeviceInfo(it.deviceUuid, it.deviceName ?: "Unknown", it.totalDetections)
                 },
-                strongestSignalDevice = strongestSignal?.let {
-                    DeviceInfo(it.deviceAddress, it.deviceName ?: "Unknown", it.averageRssi.toInt())
+                strongestSignalDevice = strongestSignalDevice?.let {
+                    DeviceInfo(it.deviceUuid, it.deviceName ?: "Unknown", strongestSignalDetection.rssi)
                 }
             )
         } catch (e: Exception) {
@@ -52,13 +59,13 @@ class SimpleAnalyticsRepository @Inject constructor(
     suspend fun getRecentActivity(hoursBack: Int = 24): List<RecentActivity> {
         return try {
             val cutoffTime = System.currentTimeMillis() - TimeUnit.HOURS.toMillis(hoursBack.toLong())
-            val detections = database.bleDetectionDao().getDetectionsSince(cutoffTime).first()
+            val detections = database.fingerprintDetectionDao().getRecentDetections(cutoffTime).first()
             
-            detections.groupBy { it.deviceAddress }
-                .map { (address, detectionList) ->
-                    val device = database.bleDeviceDao().getDevice(address)
+            detections.groupBy { it.deviceUuid }
+                .map { (deviceUuid, detectionList) ->
+                    val device = database.deviceFingerprintDao().getDeviceFingerprint(deviceUuid)
                     RecentActivity(
-                        deviceAddress = address,
+                        deviceUuid = deviceUuid,
                         deviceName = device?.deviceName ?: "Unknown",
                         detectionCount = detectionList.size,
                         lastSeen = detectionList.maxOfOrNull { it.timestamp } ?: 0L,
@@ -86,13 +93,13 @@ data class SimpleAnalytics(
 )
 
 data class DeviceInfo(
-    val address: String,
+    val deviceUuid: String,
     val name: String,
     val value: Int
 )
 
 data class RecentActivity(
-    val deviceAddress: String,
+    val deviceUuid: String,
     val deviceName: String,
     val detectionCount: Int,
     val lastSeen: Long,

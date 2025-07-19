@@ -16,14 +16,14 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bleradar.ui.viewmodel.AlertsViewModel
-import com.bleradar.data.database.BleDevice
+import com.bleradar.ui.model.DeviceDisplayModel
 import java.text.SimpleDateFormat
 import java.util.*
 
 @Composable
 fun AlertsScreen(
     viewModel: AlertsViewModel = hiltViewModel(),
-    onNavigateToMap: (deviceAddress: String) -> Unit = {}
+    onNavigateToMap: (deviceUuid: String) -> Unit = {}
 ) {
     val suspiciousDevices by viewModel.suspiciousDevices.collectAsStateWithLifecycle(initialValue = emptyList())
     val trackedDevices by viewModel.trackedDevices.collectAsStateWithLifecycle(initialValue = emptyList())
@@ -144,7 +144,7 @@ fun AlertsScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SuspiciousDeviceCard(device: BleDevice, viewModel: AlertsViewModel, onNavigateToMap: (deviceAddress: String) -> Unit = {}) {
+fun SuspiciousDeviceCard(device: DeviceDisplayModel, viewModel: AlertsViewModel, onNavigateToMap: (deviceUuid: String) -> Unit = {}) {
     val dateFormat = SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault())
     
     // State for button feedback
@@ -168,18 +168,18 @@ fun SuspiciousDeviceCard(device: BleDevice, viewModel: AlertsViewModel, onNaviga
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = device.deviceName ?: "Unknown Device",
+                        text = device.displayName,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = device.deviceAddress,
+                        text = device.primaryMacAddress,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                     )
-                    if (device.label != null) {
+                    if (device.notes != null) {
                         Text(
-                            text = "Label: ${device.label}",
+                            text = "Label: ${device.notes}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -188,7 +188,7 @@ fun SuspiciousDeviceCard(device: BleDevice, viewModel: AlertsViewModel, onNaviga
                 
                 // Location history button
                 IconButton(
-                    onClick = { onNavigateToMap(device.deviceAddress) },
+                    onClick = { onNavigateToMap(device.deviceUuid) },
                     modifier = Modifier.size(32.dp)
                 ) {
                     Icon(
@@ -210,7 +210,7 @@ fun SuspiciousDeviceCard(device: BleDevice, viewModel: AlertsViewModel, onNaviga
             
             // Following score
             LinearProgressIndicator(
-                progress = device.followingScore,
+                progress = device.suspiciousScore,
                 modifier = Modifier.fillMaxWidth(),
                 color = Color.Red
             )
@@ -222,7 +222,7 @@ fun SuspiciousDeviceCard(device: BleDevice, viewModel: AlertsViewModel, onNaviga
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "Following score: ${(device.followingScore * 100).toInt()}%",
+                    text = "Following score: ${(device.suspiciousScore * 100).toInt()}%",
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.Red,
                     fontWeight = FontWeight.Bold
@@ -252,7 +252,7 @@ fun SuspiciousDeviceCard(device: BleDevice, viewModel: AlertsViewModel, onNaviga
                 OutlinedButton(
                     onClick = { 
                         markSafeClicked = true
-                        viewModel.markDeviceAsLegitimate(device.deviceAddress)
+                        viewModel.markDeviceAsLegitimate(device.deviceUuid)
                     },
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.outlinedButtonColors(
@@ -265,7 +265,7 @@ fun SuspiciousDeviceCard(device: BleDevice, viewModel: AlertsViewModel, onNaviga
                 OutlinedButton(
                     onClick = { 
                         trackClicked = true
-                        viewModel.trackDevice(device.deviceAddress)
+                        viewModel.trackDevice(device.deviceUuid)
                     },
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.outlinedButtonColors(
@@ -278,7 +278,7 @@ fun SuspiciousDeviceCard(device: BleDevice, viewModel: AlertsViewModel, onNaviga
                 Button(
                     onClick = { 
                         ignoreClicked = true
-                        viewModel.ignoreDevice(device.deviceAddress)
+                        viewModel.ignoreDevice(device.deviceUuid)
                     },
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.buttonColors(
@@ -294,7 +294,7 @@ fun SuspiciousDeviceCard(device: BleDevice, viewModel: AlertsViewModel, onNaviga
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun KnownTrackerCard(device: BleDevice, viewModel: AlertsViewModel, onNavigateToMap: (deviceAddress: String) -> Unit = {}) {
+fun KnownTrackerCard(device: DeviceDisplayModel, viewModel: AlertsViewModel, onNavigateToMap: (deviceUuid: String) -> Unit = {}) {
     val dateFormat = SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault())
     
     Card(
@@ -313,12 +313,12 @@ fun KnownTrackerCard(device: BleDevice, viewModel: AlertsViewModel, onNavigateTo
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = device.deviceName ?: "Unknown Tracker",
+                        text = device.displayName,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = device.deviceAddress,
+                        text = device.primaryMacAddress,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                     )
@@ -332,7 +332,7 @@ fun KnownTrackerCard(device: BleDevice, viewModel: AlertsViewModel, onNavigateTo
                 
                 // Location history button
                 IconButton(
-                    onClick = { onNavigateToMap(device.deviceAddress) },
+                    onClick = { onNavigateToMap(device.deviceUuid) },
                     modifier = Modifier.size(32.dp)
                 ) {
                     Icon(
@@ -343,7 +343,7 @@ fun KnownTrackerCard(device: BleDevice, viewModel: AlertsViewModel, onNavigateTo
                 }
                 
                 Text(
-                    text = "${device.rssi} dBm",
+                    text = "${device.macAddressCount} MACs",
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -358,9 +358,9 @@ fun KnownTrackerCard(device: BleDevice, viewModel: AlertsViewModel, onNavigateTo
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
             )
             
-            if (device.followingScore > 0.3f) {
+            if (device.suspiciousScore > 0.3f) {
                 Text(
-                    text = "⚠️ Tracking score: ${(device.followingScore * 100).toInt()}%",
+                    text = "⚠️ Tracking score: ${(device.suspiciousScore * 100).toInt()}%",
                     style = MaterialTheme.typography.bodySmall,
                     color = Color(0xFFFF9800),
                     fontWeight = FontWeight.Medium
@@ -382,7 +382,7 @@ fun KnownTrackerCard(device: BleDevice, viewModel: AlertsViewModel, onNavigateTo
             ) {
                 if (device.isTracked) {
                     Button(
-                        onClick = { viewModel.untrackDevice(device.deviceAddress) },
+                        onClick = { viewModel.untrackDevice(device.deviceUuid) },
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary
@@ -392,7 +392,7 @@ fun KnownTrackerCard(device: BleDevice, viewModel: AlertsViewModel, onNavigateTo
                     }
                 } else {
                     OutlinedButton(
-                        onClick = { viewModel.trackDevice(device.deviceAddress) },
+                        onClick = { viewModel.trackDevice(device.deviceUuid) },
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = MaterialTheme.colorScheme.primary
@@ -403,7 +403,7 @@ fun KnownTrackerCard(device: BleDevice, viewModel: AlertsViewModel, onNavigateTo
                 }
                 
                 OutlinedButton(
-                    onClick = { viewModel.ignoreDevice(device.deviceAddress) },
+                    onClick = { viewModel.ignoreDevice(device.deviceUuid) },
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.outlinedButtonColors(
                         contentColor = Color.Gray
@@ -418,7 +418,7 @@ fun KnownTrackerCard(device: BleDevice, viewModel: AlertsViewModel, onNavigateTo
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TrackedDeviceCard(device: BleDevice, viewModel: AlertsViewModel, onNavigateToMap: (deviceAddress: String) -> Unit = {}) {
+fun TrackedDeviceCard(device: DeviceDisplayModel, viewModel: AlertsViewModel, onNavigateToMap: (deviceUuid: String) -> Unit = {}) {
     val dateFormat = SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault())
     
     Card(
@@ -437,18 +437,18 @@ fun TrackedDeviceCard(device: BleDevice, viewModel: AlertsViewModel, onNavigateT
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = device.deviceName ?: "Unknown Device",
+                        text = device.displayName,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = device.deviceAddress,
+                        text = device.primaryMacAddress,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                     )
-                    if (device.label != null) {
+                    if (device.notes != null) {
                         Text(
-                            text = "Label: ${device.label}",
+                            text = "Label: ${device.notes}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -457,7 +457,7 @@ fun TrackedDeviceCard(device: BleDevice, viewModel: AlertsViewModel, onNavigateT
                 
                 // Location history button
                 IconButton(
-                    onClick = { onNavigateToMap(device.deviceAddress) },
+                    onClick = { onNavigateToMap(device.deviceUuid) },
                     modifier = Modifier.size(32.dp)
                 ) {
                     Icon(
@@ -468,7 +468,7 @@ fun TrackedDeviceCard(device: BleDevice, viewModel: AlertsViewModel, onNavigateT
                 }
                 
                 Text(
-                    text = "${device.rssi} dBm",
+                    text = "${device.macAddressCount} MACs",
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -497,7 +497,7 @@ fun TrackedDeviceCard(device: BleDevice, viewModel: AlertsViewModel, onNavigateT
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Button(
-                    onClick = { viewModel.untrackDevice(device.deviceAddress) },
+                    onClick = { viewModel.untrackDevice(device.deviceUuid) },
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color.Red.copy(alpha = 0.8f)
@@ -507,7 +507,7 @@ fun TrackedDeviceCard(device: BleDevice, viewModel: AlertsViewModel, onNavigateT
                 }
                 
                 OutlinedButton(
-                    onClick = { viewModel.ignoreDevice(device.deviceAddress) },
+                    onClick = { viewModel.ignoreDevice(device.deviceUuid) },
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.outlinedButtonColors(
                         contentColor = Color.Gray

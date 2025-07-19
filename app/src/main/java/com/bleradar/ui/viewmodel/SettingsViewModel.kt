@@ -6,7 +6,7 @@ import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bleradar.preferences.SettingsManager
-import com.bleradar.repository.DeviceRepository
+import com.bleradar.repository.FingerprintRepository
 import com.bleradar.service.BleRadarService
 import com.bleradar.worker.WorkManagerScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -20,7 +20,7 @@ import javax.inject.Inject
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val deviceRepository: DeviceRepository,
+    private val fingerprintRepository: FingerprintRepository,
     private val settingsManager: SettingsManager,
     private val workManagerScheduler: WorkManagerScheduler
 ) : ViewModel() {
@@ -115,13 +115,13 @@ class SettingsViewModel @Inject constructor(
     
     fun refreshDatabaseSize() {
         viewModelScope.launch {
-            // Calculate database size
-            val devices = deviceRepository.getAllDevices()
-            val detections = deviceRepository.getDetectionsSince(0)
-            val locations = deviceRepository.getLocationsSince(0)
+            // Calculate database size using fingerprint repository
+            val devices = fingerprintRepository.getAllDeviceFingerprints()
             
-            // This is a simplified calculation
-            _databaseSize.value = "~${(devices.hashCode() + detections.hashCode() + locations.hashCode()) / 1000} KB"
+            // This is a simplified calculation - just use device count for now
+            devices.collect { deviceList ->
+                _databaseSize.value = "~${deviceList.size * 5} KB"
+            }
         }
     }
     
@@ -172,9 +172,9 @@ class SettingsViewModel @Inject constructor(
     
     fun clearDatabase() {
         viewModelScope.launch {
-            val oldestTime = System.currentTimeMillis()
-            deviceRepository.deleteOldDetections(oldestTime)
-            deviceRepository.deleteOldLocations(oldestTime)
+            // Clear old data using existing method
+            val currentTime = System.currentTimeMillis()
+            fingerprintRepository.deleteOldDetections(currentTime)
             refreshDatabaseSize()
         }
     }

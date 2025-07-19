@@ -161,7 +161,7 @@ class SmartThreatDetector @Inject constructor(
             DeviceType.SUSPECTED_TRACKER -> 0.7f
             DeviceType.CAR_BLUETOOTH -> 0.1f // Low threat
             DeviceType.AIRPODS, DeviceType.EARBUDS -> 0.2f // Low threat
-            DeviceType.WHITELISTED -> 0.0f // No threat
+            DeviceType.TRACKED -> 0.0f // No threat
             else -> 0.5f // Unknown
         }
         
